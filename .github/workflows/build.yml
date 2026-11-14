@@ -1,0 +1,182 @@
+name: Build
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+env:
+  FLUTTER_VERSION: 3.47.8
+  FLUTTER_SHA: 737ba8f885dc774b53b442759999a312c9461e4e
+  MAIA_MODEL: assets/models/maia3-79m.onnx
+  MAIA_MODEL_SHA256: 3454b03ae78baa64a87b345fdb1a457265d912caec531039b074f07eda0d8010
+jobs:
+  android:
+    name: Android APK (arm64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        env:
+          GIT_LFS_SKIP_SMUDGE: 1
+      # The Maia model is a 316 MB Git LFS object. Restore it from the Actions
+      # cache (keyed on the LFS object ids) and only fetch from LFS on a miss.
+      - name: LFS cache key
+        id: lfs
+        run: |
+          echo "key=lfs-$(git lfs ls-files --long | sort | sha256sum | cut -c1-40)" >> "$GITHUB_OUTPUT"
+          # Monotonic Android versionCode so every CI APK installs over the last.
+          echo "BUILD_NUMBER=$((1000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+      - uses: actions/cache@v6
+        with:
+          path: .git/lfs/objects
+          key: ${{ steps.lfs.outputs.key }}
+          enableCrossOsArchive: true
+      - name: Materialize LFS files
+        run: |
+          git lfs pull
+          echo "$MAIA_MODEL_SHA256  $MAIA_MODEL" | sha256sum -c -
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install pinned Flutter
+        run: |
+          git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          test "$(git -C "$RUNNER_TEMP/flutter" rev-parse HEAD)" = "$FLUTTER_SHA"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Cache pub and Gradle
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.pub-cache
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: android-${{ hashFiles('pubspec.lock', 'android/**/*.gradle.kts', 'android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: android-
+      - run: flutter pub get --enforce-lockfile
+      - name: Release keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/chesster-release.jks"
+            echo "CHESSTER_KEYSTORE=$RUNNER_TEMP/chesster-release.jks" >> "$GITHUB_ENV"
+          else
+            echo "::warning::ANDROID_KEYSTORE_BASE64 is not set; the APK will be debug-signed."
+          fi
+      - name: Build release APK
+        env:
+          CHESSTER_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          CHESSTER_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          CHESSTER_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          args=(--release --target-platform android-arm64 --build-number "$BUILD_NUMBER")
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then args+=(--build-name "${GITHUB_REF_NAME#v}"); fi
+          flutter build apk "${args[@]}"
+      - name: Verify signature and name the APK
+        run: |
+          apk=build/app/outputs/flutter-apk/app-release.apk
+          apksigner=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$apksigner" verify --print-certs "$apk" | grep -E 'Signer #1 certificate (DN|SHA-256)'
+          mkdir -p dist
+          cp "$apk" "dist/chesster-${GITHUB_REF_NAME//\//-}-${BUILD_NUMBER}-arm64.apk"
+          ls -l dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: chesster-android-arm64
+          path: dist/*.apk
+          compression-level: 0
+          retention-days: 14
+      - name: Remove keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/chesster-release.jks"
+
+  windows:
+    name: Windows x64 zip
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        env:
+          GIT_LFS_SKIP_SMUDGE: 1
+      - name: LFS cache key
+        id: lfs
+        run: |
+          echo "key=lfs-$(git lfs ls-files --long | sort | sha256sum | cut -c1-40)" >> "$GITHUB_OUTPUT"
+          # Monotonic Android versionCode so every CI APK installs over the last.
+          echo "BUILD_NUMBER=$((1000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+      - uses: actions/cache@v6
+        with:
+          path: .git/lfs/objects
+          key: ${{ steps.lfs.outputs.key }}
+          enableCrossOsArchive: true
+      - name: Materialize LFS files
+        run: |
+          git lfs pull
+          echo "$MAIA_MODEL_SHA256  $MAIA_MODEL" | sha256sum -c -
+      - name: Install pinned Flutter
+        run: |
+          git clone --depth 1 --branch "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          test "$(git -C "$RUNNER_TEMP/flutter" rev-parse HEAD)" = "$FLUTTER_SHA"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Download onnxruntime.dll and stockfish.exe into windows/deps
+        shell: pwsh
+        run: ./tool/fetch_windows_deps.ps1
+      - run: flutter pub get --enforce-lockfile
+      - name: Desktop engine tests with the bundled binaries
+        env:
+          CHESSTER_STOCKFISH: ${{ github.workspace }}\windows\deps\stockfish.exe
+          CHESSTER_ORT_DLL: ${{ github.workspace }}\windows\deps\onnxruntime.dll
+        run: flutter test test/desktop_platform_test.dart --reporter expanded
+      - name: Build Windows release
+        run: |
+          args=(--release --build-number "$BUILD_NUMBER")
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then args+=(--build-name "${GITHUB_REF_NAME#v}"); fi
+          flutter build windows "${args[@]}"
+      - name: Verify bundle and zip it
+        run: |
+          release=build/windows/x64/runner/Release
+          for file in chesster.exe onnxruntime.dll stockfish.exe "data/flutter_assets/$MAIA_MODEL"; do
+            test -f "$release/$file" || { echo "::error::missing $file"; exit 1; }
+          done
+          mkdir -p dist staging
+          cp -r "$release" staging/Chesster
+          name="chesster-${GITHUB_REF_NAME//\//-}-${BUILD_NUMBER}-windows-x64.zip"
+          (cd staging && 7z a -tzip -mx=5 "../dist/$name" Chesster > /dev/null)
+          ls -l dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: chesster-windows-x64
+          path: dist/*.zip
+          compression-level: 0
+          retention-days: 14
+
+  release:
+    name: GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [android, windows]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -l dist
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Chesster $GITHUB_REF_NAME" \
+            --generate-notes
