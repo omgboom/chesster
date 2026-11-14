@@ -1,3 +1,29 @@
+# Chesster — private chess dojo
+
+Personal fork of [Mobile Maia](https://github.com/Dash1971/maia-chess-android) (AGPL-3.0) for a Pixel 8a and Windows.
+Full plan: [docs/DOJO_PLAN.md](docs/DOJO_PLAN.md). Build/install: [docs/BUILDING.md](docs/BUILDING.md).
+
+**The Dojo** (new home screen):
+
+- Play **Maia** (600–2600, human-like) or **Stockfish** (UCI_Elo 1320–3190 or full strength).
+- **Undo any time** and replay from any earlier position — every attempt is kept as a branch (Lines view, PGN variations).
+- One **Guidance** switch. When on:
+  - **Move check** button — Stockfish verdict on your last move ("Good move, but Nxc6 is better", "Blunder — best was Bg7") with eval and accuracy.
+  - **Momentum bar** — tap the handle beside the board to show/hide the eval bar.
+  - **Explain** and **Coach** chat — Claude (default Haiku 5.5, medium effort; configurable) explains in plain English, using the local Stockfish as a tool. Microphone input supported.
+- **Game report** — Stockfish accuracy, centipawn loss, blunders/mistakes, eval graph and an estimated performance Elo vs. the opponent; **AI review** chat.
+- **Progress** — performance trend, record by opponent, and a progress coach you can talk to.
+- Everything (moves, branches, verdicts, chats, reports) is saved as one JSON file per game; see Dojo settings → Game logs folder.
+- **Classic Maia** (the original app) is one tap away.
+
+| Game + guidance | Coach | Report | Progress |
+|---|---|---|---|
+| ![](docs/screenshots/dojo/pixel8a_game_guidance.png) | ![](docs/screenshots/dojo/pixel8a_coach_chat.png) | ![](docs/screenshots/dojo/pixel8a_postgame.png) | ![](docs/screenshots/dojo/pixel8a_progress.png) |
+
+---
+
+*Upstream README follows.*
+
 # Mobile Maia
 
 **By Maia fans, for Maia fans.** Mobile Maia is a community project for playing and studying chess with Maia on Android. It will always be free, never show ads, and always remain open source.
