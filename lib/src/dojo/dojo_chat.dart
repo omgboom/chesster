@@ -497,7 +497,7 @@ class _ChatBubble extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  '♟ ${entry.toolNotes.length} Stockfish check${entry.toolNotes.length == 1 ? '' : 's'}',
+                  '${entry.toolNotes.length} Stockfish check${entry.toolNotes.length == 1 ? '' : 's'}',
                   style: theme.textTheme.labelSmall?.copyWith(color: scheme.outline),
                 ),
               ),

@@ -47,8 +47,8 @@ class DojoOpponent {
 
 /// Lichess-style move labels derived from win-probability loss.
 enum MoveQuality {
-  best('Best move', '!!'),
-  excellent('Excellent', '!'),
+  best('Best move', ''),
+  excellent('Excellent', ''),
   good('Good move', ''),
   inaccuracy('Inaccuracy', '?!'),
   mistake('Mistake', '?'),
@@ -59,6 +59,8 @@ enum MoveQuality {
   final String glyph;
 
   bool get isError => index >= MoveQuality.inaccuracy.index;
+
+  String get plural => this == inaccuracy ? 'Inaccuracies' : '${label}s';
 
   Color color(ColorScheme scheme) => switch (this) {
     best => const Color(0xFF2E9E5B),
@@ -168,7 +170,7 @@ class MoveVerdict {
     if (drop < 2) return MoveQuality.excellent;
     if (drop < 5) return MoveQuality.good;
     if (drop < 10) return MoveQuality.inaccuracy;
-    if (drop < 20) return MoveQuality.mistake;
+    if (drop < 15) return MoveQuality.mistake;
     return MoveQuality.blunder;
   }
 

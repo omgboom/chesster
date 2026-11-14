@@ -101,7 +101,11 @@ class DojoEngine {
   DojoEngine({Future<StockfishEngineHandle> Function()? factory})
     : _factory = factory ?? createPlatformStockfishHandle;
 
-  static final instance = DojoEngine();
+  static DojoEngine _instance = DojoEngine();
+  static DojoEngine get instance => _instance;
+
+  @visibleForTesting
+  static set instance(DojoEngine engine) => _instance = engine;
 
   final Future<StockfishEngineHandle> Function() _factory;
   StockfishEngineHandle? _handle;

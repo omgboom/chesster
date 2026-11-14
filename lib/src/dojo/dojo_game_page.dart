@@ -543,7 +543,6 @@ class _DojoGamePageState extends State<DojoGamePage> {
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 48,
-        titleSpacing: 0,
         title: Text(
           'vs ${game.opponent.label}',
           style: Theme.of(context).textTheme.titleMedium,
@@ -916,12 +915,17 @@ class _DojoGamePageState extends State<DojoGamePage> {
     final judging = move != null && verdict == null && _analysing.contains(move.id);
     children.add(Row(
       children: [
-        FilledButton.tonalIcon(
-          key: const ValueKey('dojo-move-check'),
-          style: FilledButton.styleFrom(visualDensity: VisualDensity.compact),
-          onPressed: move == null ? null : () => setState(() => _verdictOpen = !_verdictOpen),
-          icon: Icon(_verdictOpen ? Icons.expand_less : Icons.fact_check_outlined, size: 18),
-          label: Text(move == null ? 'Move check' : 'Move check: ${move.san}'),
+        Flexible(
+          child: FilledButton.tonalIcon(
+            key: const ValueKey('dojo-move-check'),
+            style: FilledButton.styleFrom(visualDensity: VisualDensity.compact),
+            onPressed: move == null ? null : () => setState(() => _verdictOpen = !_verdictOpen),
+            icon: Icon(_verdictOpen ? Icons.expand_less : Icons.fact_check_outlined, size: 18),
+            label: Text(
+              move == null ? 'Move check' : 'Move check: ${move.san}',
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ),
         const SizedBox(width: 6),
         OutlinedButton.icon(

@@ -132,7 +132,7 @@ Future<void> main() async {
     return true;
   };
   ErrorWidget.builder = (_) => const DiagnosticsErrorScreen();
-  runApp(const MaiaChessApp());
+  runApp(const MaiaChessApp(dojo: true));
   WidgetsBinding.instance.addPostFrameCallback((_) {
     // Opening labels are useful but several taps away. Load them after the
     // first frame instead of making every cold start parse the full TSV asset.
@@ -188,7 +188,11 @@ bool shouldRequestMaiaReply({
 }) => premovePlayed && !gameOver;
 
 class MaiaChessApp extends StatefulWidget {
-  const MaiaChessApp({super.key});
+  /// [dojo] selects the Chesster Dojo home; false keeps the classic Mobile
+  /// Maia home (used by the upstream widget tests).
+  const MaiaChessApp({this.dojo = false, super.key});
+
+  final bool dojo;
 
   @override
   State<MaiaChessApp> createState() => _MaiaChessAppState();
@@ -333,7 +337,7 @@ class _MaiaChessAppState extends State<MaiaChessApp>
                 ),
               );
             },
-            home: const DojoHome(),
+            home: widget.dojo ? const DojoHome() : const GamePage(),
           ),
         ),
       ),

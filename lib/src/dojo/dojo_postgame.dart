@@ -298,7 +298,7 @@ class _DojoPostGamePageState extends State<DojoPostGamePage> {
                     _row('Avg. centipawn loss', '${you.acpl.round()}', '${them.acpl.round()}'),
                     _row('Performance', '~${you.estimatedElo}', '~${them.estimatedElo}'),
                     for (final q in [MoveQuality.blunder, MoveQuality.mistake, MoveQuality.inaccuracy])
-                      _row('${q.label}s', '${you.counts[q] ?? 0}', '${them.counts[q] ?? 0}'),
+                      _row(q.plural, '${you.counts[q] ?? 0}', '${them.counts[q] ?? 0}'),
                   ],
                 ),
               ],
@@ -327,18 +327,19 @@ class _DojoPostGamePageState extends State<DojoPostGamePage> {
               cg.StaticChessboard(
                 size: boardSize,
                 orientation: game.playerIsWhite ? dc.Side.white : dc.Side.black,
-                fen: selected.fenBefore,
-                lastMove: dc.Move.parse(selected.uci),
+                // Errors: the position before the move, with the played move
+                // (red) and Stockfish's choice (green). Otherwise the result.
+                fen: selected.quality.isError
+                    ? selected.fenBefore
+                    : (DojoChess.play(selected.fenBefore, selected.uci)?.fen ?? selected.fenBefore),
+                lastMove: selected.quality.isError ? null : dc.Move.parse(selected.uci),
                 settings: boardPreferencesOf(context).editorSettings,
-                shapes: {
-                  if (selected.quality.isError && selected.bestSan != null)
-                    ..._bestArrow(selected),
-                },
+                shapes: selected.quality.isError ? _errorArrows(selected) : const {},
               ),
               const SizedBox(height: 4),
               Text(
                 '${selected.moveLabel} — ${selected.quality.label}'
-                '${selected.quality.isError && selected.bestSan != null ? '. Best: ${selected.bestLine ?? selected.bestSan}' : ''}',
+                '${selected.quality.isError && selected.bestSan != null ? ' (red). Best (green): ${selected.bestLine ?? selected.bestSan}' : ''}',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall,
               ),
@@ -417,11 +418,18 @@ class _DojoPostGamePageState extends State<DojoPostGamePage> {
     );
   }
 
-  Set<cg.Shape> _bestArrow(PostGameMove move) {
-    final best = DojoChess.play(move.fenBefore, move.bestSan!);
+  Set<cg.Shape> _errorArrows(PostGameMove move) {
+    final shapes = <cg.Shape>{};
+    final played = dc.Move.parse(move.uci);
+    if (played is dc.NormalMove) {
+      shapes.add(cg.Arrow(color: const Color(0xB0D03030), orig: played.from, dest: played.to));
+    }
+    final best = move.bestSan == null ? null : DojoChess.play(move.fenBefore, move.bestSan!);
     final parsed = best == null ? null : dc.Move.parse(best.uci);
-    if (parsed is! dc.NormalMove) return {};
-    return {cg.Arrow(color: const Color(0xC015781B), orig: parsed.from, dest: parsed.to)};
+    if (parsed is dc.NormalMove) {
+      shapes.add(cg.Arrow(color: const Color(0xC015781B), orig: parsed.from, dest: parsed.to));
+    }
+    return shapes;
   }
 
   TableRow _row(String label, String you, String them) {

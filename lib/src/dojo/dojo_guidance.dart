@@ -110,13 +110,13 @@ class DojoEvalBar extends StatelessWidget {
                   right: 0,
                   top: (score >= 0) == whiteAtBottom ? null : 2,
                   bottom: (score >= 0) == whiteAtBottom ? 2 : null,
-                  child: RotatedBox(
-                    quarterTurns: 0,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
                     child: Text(
                       label.replaceAll('+', ''),
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 8.5,
+                        fontSize: 9,
                         fontWeight: FontWeight.w700,
                         color: (score >= 0) ? const Color(0xFF333333) : const Color(0xFFEEEEEE),
                       ),
