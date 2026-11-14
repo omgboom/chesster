@@ -99,8 +99,12 @@ class ChessnutPlatformTransport implements DiscoverableBoardTransport {
 
   static final ChessnutPlatformTransport instance =
       ChessnutPlatformTransport._();
-  static const MethodChannel _methods = MethodChannel('maia_chess/chessnut');
-  static const EventChannel _nativeEvents = EventChannel(
+  // Bluetooth boards are Android-only; desktop reports them unsupported.
+  static const MethodChannel _methods = AndroidOnlyMethodChannel(
+    'maia_chess/chessnut',
+    'Electronic boards are only supported on Android.',
+  );
+  static const EventChannel _nativeEvents = AndroidOnlyEventChannel(
     'maia_chess/chessnut/events',
   );
   static final _rawEvents = _nativeEvents.receiveBroadcastStream();

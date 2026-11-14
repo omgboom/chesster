@@ -13,6 +13,8 @@ analyzer:
   exclude:
     # Byte-identical pinned upstream renderer; app integration is analyzed below.
     - third_party/chessground/**
+    # Vendored onnxruntime 1.4.1 FFI bindings (see its PATCHES.md).
+    - third_party/onnxruntime_dart/**
     - build/**
     - android/**
     - ios/**

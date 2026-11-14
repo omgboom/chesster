@@ -29,6 +29,7 @@ import 'package:http/http.dart' as http;
 import 'package:multistockfish/multistockfish.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:speech_to_text/speech_to_text.dart';
+import 'package:onnxruntime_dart/onnxruntime.dart' as ort;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -73,6 +74,8 @@ part 'src/dojo/dojo_game_page.dart';
 part 'src/dojo/dojo_postgame.dart';
 part 'src/dojo/dojo_progress.dart';
 part 'src/dojo/dojo_home.dart';
+part 'src/desktop/desktop_channels.dart';
+part 'src/desktop/desktop_maia.dart';
 part 'src/play.dart';
 part 'src/play_localization.dart';
 part 'src/analysis_board.dart';
@@ -147,7 +150,7 @@ Future<void> main() async {
 
 final maiaRouteObserver = RouteObserver<PageRoute<dynamic>>();
 
-const maiaEngineChannel = MethodChannel('maia_chess/engine');
+const maiaEngineChannel = MaiaEngineChannel('maia_chess/engine');
 const maiaProjectUrl = 'https://github.com/CSSLab/maia3';
 const lichessChessgroundUrl =
     'https://github.com/lichess-org/flutter-chessground';

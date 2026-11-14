@@ -1,4 +1,5 @@
 import java.security.MessageDigest
+import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -6,18 +7,37 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-val releaseKeystorePath = System.getenv("MOBILE_MAIA_KEYSTORE")
-val releaseStorePassword = System.getenv("MOBILE_MAIA_STORE_PASSWORD")
-val releaseKeyPassword = System.getenv("MOBILE_MAIA_KEY_PASSWORD")
+// Release signing for Chesster. Values come from environment variables (CI)
+// or android/key.properties (local, gitignored):
+//   CHESSTER_KEYSTORE / storeFile           path to the .jks keystore
+//   CHESSTER_KEYSTORE_PASSWORD / storePassword
+//   CHESSTER_KEY_ALIAS / keyAlias
+//   CHESSTER_KEY_PASSWORD / keyPassword
+// Without them, release builds fall back to the debug key so they still
+// install for local testing (they cannot update a release-signed install).
+val keyProperties = Properties().apply {
+    val file = rootProject.file("key.properties")
+    if (file.isFile) file.inputStream().use { load(it) }
+}
+
+fun signingValue(env: String, property: String): String? =
+    System.getenv(env)?.takeIf { it.isNotBlank() }
+        ?: keyProperties.getProperty(property)?.takeIf { it.isNotBlank() }
+
+val releaseKeystorePath = signingValue("CHESSTER_KEYSTORE", "storeFile")
+val releaseStorePassword = signingValue("CHESSTER_KEYSTORE_PASSWORD", "storePassword")
+val releaseKeyAlias = signingValue("CHESSTER_KEY_ALIAS", "keyAlias")
+val releaseKeyPassword = signingValue("CHESSTER_KEY_PASSWORD", "keyPassword")
 val releaseSigningValues = listOf(
     releaseKeystorePath,
     releaseStorePassword,
+    releaseKeyAlias,
     releaseKeyPassword,
 )
 
 require(releaseSigningValues.all { it == null } || releaseSigningValues.all { it != null }) {
-    "Set MOBILE_MAIA_KEYSTORE, MOBILE_MAIA_STORE_PASSWORD, and " +
-        "MOBILE_MAIA_KEY_PASSWORD together."
+    "Set CHESSTER_KEYSTORE, CHESSTER_KEYSTORE_PASSWORD, CHESSTER_KEY_ALIAS and " +
+        "CHESSTER_KEY_PASSWORD (or all four key.properties entries) together."
 }
 
 val maiaRuntimeVersion = "1.24.3"
@@ -43,7 +63,9 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.dash1971.maia_chess"
+        // Chesster installs alongside upstream Mobile Maia. The Kotlin
+        // package/namespace intentionally stays com.dash1971.maia_chess.
+        applicationId = "com.chesster.dojo"
         // Unflavored Stable keeps the canonical F-Droid build command.
         // The shared native transport gates experimental boards on this value.
         buildConfigField("String", "FLAVOR", "\"stable\"")
@@ -67,10 +89,10 @@ android {
 
     signingConfigs {
         if (releaseKeystorePath != null) {
-            create("mobileMaiaRelease") {
-                storeFile = file(releaseKeystorePath)
+            create("chessterRelease") {
+                storeFile = rootProject.file(releaseKeystorePath)
                 storePassword = releaseStorePassword
-                keyAlias = "mobile-maia"
+                keyAlias = releaseKeyAlias
                 keyPassword = releaseKeyPassword
             }
         }
@@ -78,9 +100,8 @@ android {
 
     buildTypes {
         release {
-            // F-Droid can build an unsigned release when signing credentials are
-            // absent. Official Mobile Maia releases provide all three variables.
-            signingConfig = signingConfigs.findByName("mobileMaiaRelease")
+            signingConfig = signingConfigs.findByName("chessterRelease")
+                ?: signingConfigs.getByName("debug")
             // Remove unused Java/Kotlin bytecode, including Flutter's dormant
             // deferred-component bridge. JNI/reflection-sensitive ONNX classes
             // remain protected by the explicit rules in proguard-rules.pro.

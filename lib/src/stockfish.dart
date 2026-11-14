@@ -55,10 +55,7 @@ final class _MultistockfishHandle implements StockfishEngineHandle {
 typedef StockfishEngineFactory = Future<StockfishEngineHandle> Function();
 
 class StockfishAnalyzer {
-  StockfishAnalyzer._()
-    : this.withFactory(
-        () async => _MultistockfishHandle(await Stockfish.create()),
-      );
+  StockfishAnalyzer._() : this.withFactory(createPlatformStockfishHandle);
 
   /// Allows deterministic native failure tests without loading a chess engine.
   StockfishAnalyzer.withFactory(

@@ -1,0 +1,18 @@
+name: onnxruntime_dart
+description: >-
+  Vendored pure-Dart FFI bindings of the `onnxruntime` pub package 1.4.1
+  (https://github.com/gtbluesky/onnxruntime_flutter, MIT). Used by the Windows
+  desktop build only. The Flutter plugin section and all native binaries were
+  removed; the app ships Microsoft's official onnxruntime.dll next to the exe.
+version: 1.4.1+chesster.1
+publish_to: 'none'
+
+environment:
+  # Keep the upstream language version (pre-Dart-3 class modifier rules).
+  sdk: '>=2.17.0 <4.0.0'
+  flutter: '>=3.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  ffi: ^2.0.1

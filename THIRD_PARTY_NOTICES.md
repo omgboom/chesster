@@ -89,6 +89,11 @@ The Android application uses Stockfish 19 Light through multistockfish 0.6.1
 and its multistockfish_light 0.1.0 native package. Corresponding source and
 build instructions are available in the linked repositories.
 
+The Windows build ships the unmodified official Stockfish 19
+`stockfish-windows-x86-64-universal.exe` release binary (renamed
+`stockfish.exe`) next to the executable and runs it as a separate process.
+Its source is available at the Stockfish repository tag `sf_19`.
+
 ## Flutter Chessground
 
 - Project: <https://github.com/lichess-org/flutter-chessground>
@@ -150,6 +155,18 @@ A–E source files. The bundled CC0 legal text is retained beside the dataset.
 
 - Project: <https://github.com/microsoft/onnxruntime>
 - Licence: MIT
+
+The Windows build ships Microsoft's unmodified `onnxruntime.dll` 1.24.3 from
+the official `onnxruntime-win-x64-1.24.3.zip` release, next to the executable.
+
+## onnxruntime (Dart FFI bindings)
+
+- Project: <https://github.com/gtbluesky/onnxruntime_flutter> (pub.dev
+  `onnxruntime` 1.4.1)
+- Licence: MIT, Copyright (c) 2023 gtbluesky
+- Vendored in `third_party/onnxruntime_dart/` with its `LICENSE`; local changes
+  are listed in `third_party/onnxruntime_dart/PATCHES.md`. Used by the desktop
+  build only; no native binaries from that package are included.
 
 ## chess.dart
 
