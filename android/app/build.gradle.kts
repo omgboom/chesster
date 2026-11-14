@@ -1,4 +1,5 @@
 import java.security.MessageDigest
+import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -14,7 +15,7 @@ plugins {
 //   CHESSTER_KEY_PASSWORD / keyPassword
 // Without them, release builds fall back to the debug key so they still
 // install for local testing (they cannot update a release-signed install).
-val keyProperties = java.util.Properties().apply {
+val keyProperties = Properties().apply {
     val file = rootProject.file("key.properties")
     if (file.isFile) file.inputStream().use { load(it) }
 }
