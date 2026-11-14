@@ -24,7 +24,11 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/services.dart';
 import 'package:flutter/semantics.dart' show OrdinalSortKey;
 import 'package:intl/intl.dart' show NumberFormat;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
 import 'package:multistockfish/multistockfish.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -59,6 +63,16 @@ part 'src/history_navigation.dart';
 part 'src/sound_effect.dart';
 part 'src/game_feedback.dart';
 part 'src/desktop/desktop_platform.dart';
+part 'src/dojo/dojo_engine.dart';
+part 'src/dojo/dojo_models.dart';
+part 'src/dojo/dojo_store.dart';
+part 'src/dojo/dojo_ai.dart';
+part 'src/dojo/dojo_guidance.dart';
+part 'src/dojo/dojo_chat.dart';
+part 'src/dojo/dojo_game_page.dart';
+part 'src/dojo/dojo_postgame.dart';
+part 'src/dojo/dojo_progress.dart';
+part 'src/dojo/dojo_home.dart';
 part 'src/play.dart';
 part 'src/play_localization.dart';
 part 'src/analysis_board.dart';
@@ -268,7 +282,7 @@ class _MaiaChessAppState extends State<MaiaChessApp>
         child: AppAppearanceSettings(
           controller: _appearance,
           child: MaterialApp(
-            title: 'Mobile Maia',
+            title: 'Chesster',
             locale: _language.selectedCode == null
                 ? null
                 : Locale(_language.selectedCode!),
@@ -311,15 +325,15 @@ class _MaiaChessAppState extends State<MaiaChessApp>
                       ? Brightness.light
                       : Brightness.dark,
                 ),
-                child: child!,
+                child: AppLanguageSettings(
+                  selectedCode: _language.selectedCode,
+                  persistenceFailed: _language.persistenceFailed,
+                  onChanged: _setLanguage,
+                  child: child!,
+                ),
               );
             },
-            home: AppLanguageSettings(
-              selectedCode: _language.selectedCode,
-              persistenceFailed: _language.persistenceFailed,
-              onChanged: _setLanguage,
-              child: const GamePage(),
-            ),
+            home: const DojoHome(),
           ),
         ),
       ),

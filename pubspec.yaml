@@ -48,6 +48,10 @@ dependencies:
   crypto: ^3.0.7
   # Keep Flutter Material integration; 2.x requires a separate material_ui migration.
   dynamic_color: 1.9.0
+  http: ^1.6.0
+  path_provider: ^2.1.6
+  flutter_secure_storage: ^11.2.0
+  speech_to_text: ^7.5.0
 
 dev_dependencies:
   flutter_test:
