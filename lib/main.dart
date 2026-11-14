@@ -58,6 +58,7 @@ part 'src/board_flow.dart';
 part 'src/history_navigation.dart';
 part 'src/sound_effect.dart';
 part 'src/game_feedback.dart';
+part 'src/desktop/desktop_platform.dart';
 part 'src/play.dart';
 part 'src/play_localization.dart';
 part 'src/analysis_board.dart';
