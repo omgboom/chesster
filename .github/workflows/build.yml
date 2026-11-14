@@ -81,8 +81,11 @@ jobs:
       - name: Verify signature and name the APK
         run: |
           apk=build/app/outputs/flutter-apk/app-release.apk
-          apksigner=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
-          "$apksigner" verify --print-certs "$apk" | grep -E 'Signer #1 certificate (DN|SHA-256)'
+          set -o pipefail
+          build_tools=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)
+          echo "apksigner from $build_tools"
+          "${build_tools}apksigner" verify --verbose --print-certs "$apk" 2>&1 \
+            | { grep -Ev '^WARNING: META-INF/' || true; }
           mkdir -p dist
           cp "$apk" "dist/chesster-${GITHUB_REF_NAME//\//-}-${BUILD_NUMBER}-arm64.apk"
           ls -l dist
