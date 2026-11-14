@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chesster — your private chess dojo</title>
+<meta name="description" content="Play human-like Maia or Stockfish, undo anything, and get plain-English coaching from Claude backed by Stockfish. Free and open source for Android and Windows.">
+<style>
+  :root {
+    --bg: #f8f7f0; --fg: #1d1f17; --muted: #5e6152; --card: #ffffff; --line: #dedcd0;
+    --accent: #4f6a29; --accent-fg: #ffffff; --chip: #e5ecd6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #15170f; --fg: #ecebe2; --muted: #a6a894; --card: #1f2218; --line: #33362a;
+      --accent: #a9c97a; --accent-fg: #15170f; --chip: #2c3420; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+    font: 17px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  a { color: var(--accent); }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+  header { padding: 56px 0 24px; text-align: center; }
+  .logo { font-size: 56px; line-height: 1; }
+  h1 { font-size: clamp(36px, 7vw, 56px); margin: 8px 0 4px; letter-spacing: -0.02em; }
+  .tag { font-size: clamp(18px, 2.6vw, 22px); color: var(--muted); max-width: 680px; margin: 0 auto 24px; }
+  .buttons { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .btn { display: inline-block; padding: 12px 20px; border-radius: 999px; text-decoration: none; font-weight: 600;
+    border: 1px solid var(--accent); }
+  .btn.primary { background: var(--accent); color: var(--accent-fg); }
+  .shots { display: flex; gap: 14px; overflow-x: auto; padding: 28px 4px 8px; scroll-snap-type: x mandatory;
+    justify-content: safe center; }
+  .shots img { width: 210px; flex: 0 0 auto; border-radius: 22px; border: 1px solid var(--line);
+    box-shadow: 0 8px 24px rgba(0,0,0,.12); scroll-snap-align: center; }
+  section { padding: 36px 0; border-top: 1px solid var(--line); }
+  h2 { font-size: 28px; margin: 0 0 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+  .card h3 { margin: 0 0 6px; font-size: 18px; }
+  .card p { margin: 0; color: var(--muted); font-size: 15.5px; }
+  .chip { display: inline-block; background: var(--chip); border-radius: 8px; padding: 2px 8px; font-size: 14px; }
+  ol { padding-left: 22px; } li { margin: 4px 0; }
+  code { background: var(--chip); padding: 1px 6px; border-radius: 6px; font-size: 0.92em; }
+  footer { padding: 32px 0 48px; color: var(--muted); font-size: 14px; text-align: center; border-top: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">♞</div>
+    <h1>Chesster</h1>
+    <p class="tag">A private chess dojo. Play a human-like opponent, take back anything, and have an AI coach explain your moves in plain English, with Stockfish checking every claim.</p>
+    <div class="buttons">
+      <a class="btn primary" href="https://github.com/omgboom/chesster/releases/latest">Download for Android &amp; Windows</a>
+      <a class="btn" href="https://github.com/omgboom/chesster">Source on GitHub</a>
+    </div>
+    <div class="shots">
+      <img src="screenshots/dojo/pixel8a_game_guidance.png" alt="Game screen with a move check">
+      <img src="screenshots/dojo/pixel8a_coach_chat.png" alt="AI coach chat">
+      <img src="screenshots/dojo/pixel8a_postgame.png" alt="Post-game report">
+      <img src="screenshots/dojo/pixel8a_progress.png" alt="Progress over time">
+      <img src="screenshots/dojo/pixel8a_home.png" alt="New game setup">
+    </div>
+  </header>
+
+  <section>
+    <h2>Why Chesster?</h2>
+    <div class="grid">
+      <div class="card"><h3>Opponents that feel human</h3><p>Maia-3 learned from millions of real games and plays like a person at 600–2600. When you want a strict engine, choose Stockfish at any Elo up to full strength.</p></div>
+      <div class="card"><h3>Practice, not pressure</h3><p>Undo any time and try another idea. Every attempt is kept as a branch you can come back to.</p></div>
+      <div class="card"><h3>Reasons, not just numbers</h3><p>The Claude coach tells you why a move worked or failed, and runs Stockfish while it explains so it checks lines instead of guessing.</p></div>
+      <div class="card"><h3>Private by default</h3><p>No account and no tracking. Your games are files on your device. The AI is optional and uses your own API key.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What's inside</h2>
+    <div class="grid">
+      <div class="card"><h3>Move check</h3><p>One tap rates your last move: <span class="chip">Good move, but Nxc6 is better</span> <span class="chip">Blunder: best was Bg7</span>, with the evaluation and accuracy.</p></div>
+      <div class="card"><h3>Momentum bar</h3><p>A hidden evaluation bar beside the board. Tap it to see who's winning, and tap again to hide it.</p></div>
+      <div class="card"><h3>Explain &amp; coach chat</h3><p>Ask why a move was good or bad, or talk through the position by typing or by voice.</p></div>
+      <div class="card"><h3>Game report</h3><p>Accuracy, blunders, an evaluation graph and your estimated performance Elo against the opponent, plus an AI review you can question.</p></div>
+      <div class="card"><h3>Progress</h3><p>Your rating trend and record by opponent, plus a coach that reads all your games and builds a training plan.</p></div>
+      <div class="card"><h3>One switch</h3><p>Guidance on or off. Off means a clean game without help, and the post-game analysis is still there.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Get started</h2>
+    <div class="grid">
+      <div class="card"><h3>Android</h3><ol>
+        <li>Download <code>chesster-android-arm64.apk</code> from the <a href="https://github.com/omgboom/chesster/releases/latest">latest release</a>.</li>
+        <li>Open it and allow installing from that source.</li>
+        <li>Updates install over the old version, and your games are kept.</li></ol></div>
+      <div class="card"><h3>Windows 10/11</h3><ol>
+        <li>Download <code>chesster-windows-x64.zip</code>.</li>
+        <li>Unzip it and run <code>chesster.exe</code>.</li>
+        <li>If SmartScreen warns you, choose <i>More info → Run anyway</i>.</li></ol></div>
+      <div class="card"><h3>AI coach (optional)</h3><ol>
+        <li>Create a key at <a href="https://console.anthropic.com/">console.anthropic.com</a>.</li>
+        <li>Paste it in <i>Settings → Anthropic API key</i>.</li>
+        <li>The default model is Claude Haiku 5.5, which is fast and cheap; you can switch to Sonnet, Opus or Fable for deeper answers.</li></ol></div>
+    </div>
+  </section>
+
+  <footer>
+    Chesster is free software (AGPL-3.0), forked from <a href="https://github.com/Dash1971/maia-chess-android">Mobile Maia</a>.
+    It is built on <a href="https://github.com/CSSLab/maia3">Maia-3</a>, <a href="https://stockfishchess.org/">Stockfish</a>, Lichess's chessground and ONNX Runtime.
+    The optional coach is powered by Claude.
+  </footer>
+</div>
+</body>
+</html>
