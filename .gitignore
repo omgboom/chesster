@@ -67,3 +67,6 @@ mobile_maia_android_signing_password
 # Explicit developer-only raw board captures (never commit)
 /tool/board_capture/captures/
 /tool/board_capture/.venv/
+
+# Claude Code local state
+.claude/
