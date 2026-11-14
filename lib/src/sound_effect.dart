@@ -9,7 +9,10 @@ class SoundEffect {
     _channel.setMethodCallHandler(_handlePlatformCall);
   }
 
-  static const _channel = MethodChannel('maia_chess/sound_effect');
+  static const _channel = AndroidOnlyMethodChannel(
+    'maia_chess/sound_effect',
+    'Sound effects are not available on desktop.',
+  );
   final Map<String, Completer<void>> _loads = {};
 
   Future<void> _handlePlatformCall(MethodCall call) async {

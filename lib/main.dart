@@ -25,6 +25,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/semantics.dart' show OrdinalSortKey;
 import 'package:intl/intl.dart' show NumberFormat;
 import 'package:multistockfish/multistockfish.dart';
+import 'package:onnxruntime_dart/onnxruntime.dart' as ort;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -59,6 +60,8 @@ part 'src/history_navigation.dart';
 part 'src/sound_effect.dart';
 part 'src/game_feedback.dart';
 part 'src/desktop/desktop_platform.dart';
+part 'src/desktop/desktop_channels.dart';
+part 'src/desktop/desktop_maia.dart';
 part 'src/play.dart';
 part 'src/play_localization.dart';
 part 'src/analysis_board.dart';
@@ -133,7 +136,7 @@ Future<void> main() async {
 
 final maiaRouteObserver = RouteObserver<PageRoute<dynamic>>();
 
-const maiaEngineChannel = MethodChannel('maia_chess/engine');
+const maiaEngineChannel = MaiaEngineChannel('maia_chess/engine');
 const maiaProjectUrl = 'https://github.com/CSSLab/maia3';
 const lichessChessgroundUrl =
     'https://github.com/lichess-org/flutter-chessground';
