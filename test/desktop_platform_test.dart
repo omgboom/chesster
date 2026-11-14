@@ -59,8 +59,12 @@ void main() {
         expect(await locate(), preferred);
         final nested = await touch('app${sep}stockfish$sep$name');
         expect(await locate(), nested);
-        final beside = await touch('app$sep$name');
-        expect(await locate(), beside);
+        // Off Windows the executable is also named "stockfish", the same as
+        // the subfolder, so only Windows can have both side by side.
+        if (Platform.isWindows) {
+          final beside = await touch('app$sep$name');
+          expect(await locate(), beside);
+        }
 
         expect(
           await locateStockfishExecutable(
