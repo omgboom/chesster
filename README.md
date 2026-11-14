@@ -55,14 +55,14 @@ The original Mobile Maia is still here: clocks, premoves, an analysis board, PGN
 ## Install
 
 ### Android (tested target: Pixel 8a)
-1. Download `chesster-android-arm64.apk` from the [latest release](https://github.com/omgboom/chesster/releases/latest).
+1. Download the `…-arm64.apk` file from the [latest release](https://github.com/omgboom/chesster/releases/latest).
 2. Open it on your phone and allow *Install unknown apps* for your browser or file manager when Android asks.
 3. Updates install over the previous version, and your games are kept.
 
 Chesster uses the package id `com.chesster.dojo`, so it installs next to the original Mobile Maia.
 
 ### Windows 10/11 (x64)
-1. Download `chesster-windows-x64.zip` from the [latest release](https://github.com/omgboom/chesster/releases/latest).
+1. Download the `…-windows-x64.zip` file from the [latest release](https://github.com/omgboom/chesster/releases/latest).
 2. Unzip it anywhere and run `chesster.exe`. Stockfish and ONNX Runtime are included, and nothing needs installing.
 3. If SmartScreen warns about an unknown publisher, choose *More info → Run anyway*. The build is not code-signed.
 
