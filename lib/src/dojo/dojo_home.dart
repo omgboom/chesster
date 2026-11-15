@@ -449,6 +449,9 @@ class _DojoSettingsPageState extends State<DojoSettingsPage> {
               _header('Updates'),
               const DojoUpdateTile(),
               const Divider(),
+              _header('Sync'),
+              const DojoSyncTile(),
+              const Divider(),
               _header('Data'),
               FutureBuilder<String>(
                 future: DojoStore.instance.gamesFolder(),

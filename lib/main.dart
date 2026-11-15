@@ -77,6 +77,7 @@ part 'src/dojo/dojo_home.dart';
 part 'src/dojo/dojo_training_data.dart';
 part 'src/dojo/dojo_training.dart';
 part 'src/dojo/dojo_update.dart';
+part 'src/dojo/dojo_sync.dart';
 part 'src/desktop/desktop_channels.dart';
 part 'src/desktop/desktop_maia.dart';
 part 'src/play.dart';
@@ -139,6 +140,7 @@ Future<void> main() async {
   };
   ErrorWidget.builder = (_) => const DiagnosticsErrorScreen();
   runApp(const MaiaChessApp(dojo: true));
+  unawaited(DojoSync.instance.start());
   WidgetsBinding.instance.addPostFrameCallback((_) {
     // Opening labels are useful but several taps away. Load them after the
     // first frame instead of making every cold start parse the full TSV asset.
