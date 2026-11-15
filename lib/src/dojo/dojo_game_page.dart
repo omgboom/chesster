@@ -41,6 +41,21 @@ String dojoGameStateBlock(DojoGame game, DojoNode node) {
       'Current Stockfish eval (White\'s view): ${formatWhiteEval(analysis.whiteScore, whiteMate: analysis.whiteMate)}',
     );
   }
+  final takebacks = game.takebacksOnLine(node.id);
+  if (takebacks.isNotEmpty) {
+    buffer.writeln('Takebacks on this line (the student stepped back and changed a move):');
+    for (final t in takebacks) {
+      buffer.writeln('- $t');
+    }
+  }
+  final otherLines = game.nodes.values.where((n) => n.children.length > 1).length;
+  if (otherLines > 0) buffer.writeln('The game tree has $otherLines branching points from explored alternatives.');
+  final training = game.training;
+  if (training != null) {
+    buffer.writeln(training.isOpening
+        ? 'This is an opening training game: ${training.title}. Use the opening name and typical plans when helpful.'
+        : 'This is an endgame training game: ${training.title} (goal: ${training.endgame?.goal}).');
+  }
   if (game.isFinished) buffer.writeln('Game result: ${game.result} (${game.resultReason}).');
   buffer.write('[/Game state]');
   return buffer.toString();
@@ -81,6 +96,10 @@ class _DojoGamePageState extends State<DojoGamePage> {
   String? _engineError;
   final Set<int> _analysing = {};
   Timer? _saveTimer;
+  bool _backgroundRunning = false;
+  String? _trainingMiss;
+  bool _showBookArrow = false;
+  bool _pointersOpen = true;
 
   DojoSettings get settings => DojoSettings.instance;
   bool get _guidance => settings.guidance;
@@ -165,6 +184,7 @@ class _DojoGamePageState extends State<DojoGamePage> {
         WidgetsBinding.instance.addPostFrameCallback((_) => _showResultDialog());
       }
       _analyse(node);
+      _backgroundAnalyse();
       return;
     }
     if (node.turn != game.playerSide) {
@@ -182,12 +202,80 @@ class _DojoGamePageState extends State<DojoGamePage> {
       }
     }
     _analyse(node);
+    _backgroundAnalyse();
     _scheduleSave();
+  }
+
+  /// Opening book move expected at [node] (training only).
+  BookMove? _bookMoveAt(DojoNode node) {
+    final lesson = game.training?.opening;
+    if (lesson == null) return null;
+    final ply = game.plyOf(node.id);
+    if (ply >= lesson.moves.length) return null;
+    // Only while the game is still following the book.
+    final path = game.pathTo(node.id);
+    for (var i = 1; i < path.length; i++) {
+      if (path[i].san != lesson.moves[i - 1].san) return null;
+    }
+    return lesson.moves[ply];
+  }
+
+  /// Analyses earlier positions on the current line while you play, at the
+  /// report's strength, so the post-game report is nearly instant.
+  void _backgroundAnalyse() {
+    if (_backgroundRunning) return;
+    _backgroundRunning = true;
+    () async {
+      try {
+        while (mounted) {
+          final pending = game
+              .pathTo(game.currentId)
+              .where((n) => n.analysis == null && !_analysing.contains(n.id))
+              .firstOrNull;
+          if (pending == null) break;
+          final analysis = await DojoEngine.instance.analyze(
+            pending.fen,
+            multiPv: _guidance ? 3 : 1,
+            movetimeMs: settings.analysisDepth.movetimeMs,
+            background: true,
+          );
+          pending.analysis ??= analysis;
+          _scheduleSave();
+        }
+      } catch (error, stackTrace) {
+        unawaited(AppDiagnostics.record('dojo-background-analysis', error, stackTrace));
+      } finally {
+        _backgroundRunning = false;
+      }
+    }();
   }
 
   Future<void> _onMove(dc.Move move, {bool? viaDragAndDrop}) async {
     if (!_playerToMove || _opponentThinking) return;
     final parent = game.current;
+    final book = _bookMoveAt(parent);
+    if (book != null) {
+      final expected = DojoChess.play(parent.fen, book.san);
+      if (expected != null && expected.uci != move.uci) {
+        final played = DojoChess.sanOf(parent.fen, move.uci) ?? move.uci;
+        setState(() {
+          game.training = game.training!.withMiss();
+          _trainingMiss = 'Not quite — $played is not the book move here. Try again, or tap "Show me".';
+        });
+        _sync();
+        _scheduleSave();
+        return;
+      }
+    }
+    _trainingMiss = null;
+    _showBookArrow = false;
+    final isTakeback = parent.children.any((c) {
+      final child = game.nodes[c]!;
+      return child.byPlayer && child.uci != move.uci;
+    }) && book == null;
+    if (isTakeback && !parent.children.any((c) => game.nodes[c]!.uci == move.uci)) {
+      game.undoCount++;
+    }
     final DojoNode node;
     try {
       node = game.addMove(parent.id, move.uci, byPlayer: true);
@@ -209,8 +297,14 @@ class _DojoGamePageState extends State<DojoGamePage> {
     _sync();
     final timer = Stopwatch()..start();
     String? uci;
+    final book = _bookMoveAt(node);
     try {
-      uci = game.opponent.kind == DojoOpponentKind.maia
+      uci = book != null
+          ? await Future<String?>.delayed(
+              const Duration(milliseconds: 500),
+              () => DojoChess.play(node.fen, book.san)?.uci,
+            )
+          : game.opponent.kind == DojoOpponentKind.maia
           ? await _maiaMove(node)
           : await DojoEngine.instance.chooseMove(
               node.fen,
@@ -345,7 +439,6 @@ class _DojoGamePageState extends State<DojoGamePage> {
       target = node.parentId;
     }
     if (target == null) return;
-    game.undoCount++;
     _goTo(target);
   }
 
@@ -514,6 +607,8 @@ class _DojoGamePageState extends State<DojoGamePage> {
     switch (value) {
       case 'flip':
         setState(() => _flipped = !_flipped);
+      case 'undo':
+        _undo();
       case 'resign':
         unawaited(_resign());
       case 'draw':
@@ -543,9 +638,22 @@ class _DojoGamePageState extends State<DojoGamePage> {
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 48,
-        title: Text(
-          'vs ${game.opponent.label}',
-          style: Theme.of(context).textTheme.titleMedium,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              game.training == null ? 'vs ${game.opponent.label}' : game.training!.title,
+              style: Theme.of(context).textTheme.titleMedium,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (_openingName() case final name?)
+              Text(
+                name,
+                key: const ValueKey('dojo-opening-name'),
+                style: Theme.of(context).textTheme.labelSmall,
+                overflow: TextOverflow.ellipsis,
+              ),
+          ],
         ),
         actions: [
           IconButton(
@@ -556,6 +664,7 @@ class _DojoGamePageState extends State<DojoGamePage> {
           PopupMenuButton<String>(
             onSelected: _onMenu,
             itemBuilder: (context) => [
+              const PopupMenuItem(value: 'undo', child: ListTile(leading: Icon(Icons.undo), title: Text('Take back my move'))),
               const PopupMenuItem(value: 'flip', child: ListTile(leading: Icon(Icons.swap_vert), title: Text('Flip board'))),
               const PopupMenuItem(value: 'analyse', child: ListTile(leading: Icon(Icons.insights), title: Text('Analyze game'))),
               const PopupMenuItem(value: 'pgn', child: ListTile(leading: Icon(Icons.copy), title: Text('Copy PGN'))),
@@ -707,6 +816,7 @@ class _DojoGamePageState extends State<DojoGamePage> {
             orientation: _orientation,
             controller: _board,
             onMove: _onMove,
+            shapes: _bookArrow(),
             settings: boardPreferencesOf(context).interactiveSettings.copyWith(enablePremoves: false),
           ),
         ],
@@ -873,6 +983,8 @@ class _DojoGamePageState extends State<DojoGamePage> {
       ));
     }
     final node = game.current;
+    final trainingCard = _trainingCard();
+    if (trainingCard != null) children.add(trainingCard);
     final waitingForOpponent = node.turn != game.playerSide &&
         node.children.isEmpty &&
         !_opponentThinking &&
@@ -946,6 +1058,167 @@ class _DojoGamePageState extends State<DojoGamePage> {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children);
   }
 
+  Set<cg.Shape> _bookArrow() {
+    if (!_showBookArrow) return const {};
+    final node = game.current;
+    final book = _bookMoveAt(node);
+    if (book == null || node.turn != game.playerSide) return const {};
+    final move = dc.Move.parse(DojoChess.play(node.fen, book.san)?.uci ?? '');
+    if (move is! dc.NormalMove) return const {};
+    return {cg.Arrow(color: const Color(0xC015781B), orig: move.from, dest: move.to)};
+  }
+
+  String? _openingName() {
+    if (game.root.fen != dojoStartFen) return null;
+    return OpeningNames.identifyPositions(game.pathTo(game.currentId).map((n) => n.fen));
+  }
+
+  void _hint() => unawaited(_openCoach(
+    prompt: 'Give me a hint for this position. Don\'t tell me the move outright: point me at the idea or the piece to look at first.',
+    kind: 'hint',
+  ));
+
+  /// Whether the line to [id] still follows the lesson's book moves.
+  bool _followsBook(int id) {
+    final lesson = game.training?.opening;
+    if (lesson == null) return false;
+    final path = game.pathTo(id);
+    if (path.length - 1 > lesson.moves.length) return false;
+    for (var i = 1; i < path.length; i++) {
+      if (path[i].san != lesson.moves[i - 1].san) return false;
+    }
+    return true;
+  }
+
+  Widget? _trainingCard() {
+    final training = game.training;
+    if (training == null) return null;
+    final theme = Theme.of(context);
+    final node = game.current;
+    if (training.endgame case final lesson?) {
+      if (!_pointersOpen) {
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => setState(() => _pointersOpen = true),
+            icon: const Icon(Icons.flag_outlined, size: 18),
+            label: Text('Goal: ${lesson.goal} · show pointers'),
+          ),
+        );
+      }
+      return Card(
+        key: const ValueKey('dojo-training-card'),
+        margin: const EdgeInsets.only(bottom: 6),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(child: Text('Goal: ${lesson.goal}', style: theme.textTheme.titleSmall)),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () => setState(() => _pointersOpen = false),
+                  ),
+                ],
+              ),
+              for (final p in lesson.pointers)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2, right: 8),
+                  child: Text('• $p', style: theme.textTheme.bodySmall),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+    final lesson = training.opening;
+    if (lesson == null) return null;
+    final ply = game.plyOf(node.id);
+    final onBook = _followsBook(node.id);
+    final lastBook = onBook && ply > 0 ? lesson.moves[ply - 1] : null;
+    final next = _bookMoveAt(node);
+    final playerNext = next != null && node.turn == game.playerSide;
+    final done = onBook && ply >= lesson.moves.length;
+    return Card(
+      key: const ValueKey('dojo-training-card'),
+      margin: const EdgeInsets.only(bottom: 6),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${lesson.eco} · ${lesson.name}',
+                    style: theme.textTheme.titleSmall,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Text(
+                  '${min(ply, lesson.moves.length)}/${lesson.moves.length}',
+                  style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.outline),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            if (ply == 0) Text(lesson.summary, style: theme.textTheme.bodySmall),
+            if (lastBook != null)
+              Text.rich(
+                TextSpan(children: [
+                  TextSpan(text: '${lastBook.san}: ', style: const TextStyle(fontWeight: FontWeight.w700)),
+                  TextSpan(text: lastBook.note),
+                ]),
+                key: const ValueKey('dojo-book-note'),
+                style: theme.textTheme.bodySmall,
+              ),
+            if (_trainingMiss != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(_trainingMiss!, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error)),
+              ),
+            if (playerNext)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Your move: ${next.note}',
+                        style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
+                      ),
+                    ),
+                    TextButton(
+                      key: const ValueKey('dojo-show-me'),
+                      onPressed: () => setState(() => _showBookArrow = !_showBookArrow),
+                      child: Text(_showBookArrow ? 'Hide' : 'Show me'),
+                    ),
+                  ],
+                ),
+              ),
+            if (done)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'Book complete! Now play it out against ${game.opponent.label}.',
+                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
+            if (!onBook)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text('You left the book line, so play on as a normal game.', style: theme.textTheme.bodySmall),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _controls() {
     final node = game.current;
     final canUndo = node.parentId != null;
@@ -976,10 +1249,16 @@ class _DojoGamePageState extends State<DojoGamePage> {
         height: 56,
         child: Row(
           children: [
-            button(Icons.undo, 'Undo', canUndo ? _undo : null, key: const ValueKey('dojo-undo')),
-            button(Icons.chevron_left, 'Back', node.parentId == null ? null : _back),
+            button(Icons.chevron_left, 'Back', canUndo ? _back : null, key: const ValueKey('dojo-back')),
             button(Icons.chevron_right, 'Forward', node.children.isEmpty ? null : _forward),
             button(Icons.account_tree_outlined, 'Lines', _showLines),
+            if (_guidance)
+              button(
+                Icons.tips_and_updates_outlined,
+                'Hint',
+                _playerToMove ? _hint : null,
+                key: const ValueKey('dojo-hint'),
+              ),
             if (_guidance && MediaQuery.sizeOf(context).width < 900)
               button(Icons.forum_outlined, 'Coach', () => _openCoach(), key: const ValueKey('dojo-coach')),
           ],

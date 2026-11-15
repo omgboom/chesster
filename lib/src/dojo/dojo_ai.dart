@@ -338,18 +338,20 @@ How to help:
 Each user message starts with a [Game state] block. It is the authoritative current position; earlier blocks describe older positions.''';
 
   static const review = '''
-You are Chesster, a friendly, honest chess coach reviewing a finished training game with the student. A Stockfish report of every move is provided. Write for an improving club player in plain English.
+You are Chesster, a friendly, honest chess coach reviewing a finished training game with the student. A Stockfish report of every move is provided in the first message. Write for an improving club player in plain English.
 
-Your first review should cover, briefly:
-1. Overall verdict: how well the student played, including the estimated performance rating compared with the opponent's rating (treat the estimate as rough).
-2. The 2–4 turning points: what happened, why it mattered, and what to do instead (use the tools to check positions and lines; never invent moves).
-3. One or two patterns or habits to work on, with a concrete training tip.
-Use short headings or bullets, no tables. Later messages are follow-up questions; answer them concisely.''';
+The student has a chessboard above this chat. Whenever you talk about a specific moment or suggest a sequence of moves, call show_on_board with the FEN before the sequence and the moves (SAN), so the student can step through your line on the board and compare it with what was actually played. Use one call per idea, with a short title such as "12. Nxe5?? and the fork" or "Better: 12. Nxd4". Never invent moves: check lines with the Stockfish tools first.
+
+When asked for a quick review, cover briefly:
+1. Overall verdict, including the estimated performance rating compared with the opponent's rating (rough estimate).
+2. The 2–4 turning points: what happened, why it mattered, and what to do instead (show each on the board).
+3. One or two habits to work on, with a concrete training tip.
+Use short headings or bullets, no tables. Otherwise answer the student's questions concisely.''';
 
   static const progress = '''
-You are Chesster, the student's long-term chess coach. You receive a summary of their training games (date, opponent and rating, colour, result, accuracy, average centipawn loss, estimated performance rating, error counts, undo usage). Use the get_game tool to look at specific games when it helps.
+You are Chesster, the student's long-term chess coach. You receive a summary of their training games (date, opponent and rating, colour, result, accuracy, average centipawn loss, estimated performance rating, error counts, takebacks: how often they stepped back and changed a move). Use the get_game tool to look at specific games when it helps.
 
-Analyse trends honestly: strength over time, strengths and recurring weaknesses, performance by opponent type and colour, and whether undo usage hides problems. Give a short, practical training plan with concrete next steps and an opponent/rating suggestion for the next games. Plain English, short headings or bullets, no tables. Treat performance ratings as rough estimates. Follow-up messages are questions; answer concisely.''';
+Analyse trends honestly: strength over time, strengths and recurring weaknesses, performance by opponent type and colour, and whether frequent takebacks hide problems. Give a short, practical training plan with concrete next steps and an opponent/rating suggestion for the next games. Plain English, short headings or bullets, no tables. Treat performance ratings as rough estimates. Follow-up messages are questions; answer concisely.''';
 }
 
 /// Stockfish-backed tools shared by every coach conversation.
@@ -504,6 +506,71 @@ class CoachTools {
     },
   );
 
+  /// Lets the coach put a position and a line on the student's board.
+  static ClaudeTool showOnBoard({
+    required DojoGame game,
+    required void Function(DojoBoardScene scene) onScene,
+  }) => ClaudeTool(
+    name: 'show_on_board',
+    description:
+        "Show a position and a sequence of moves on the student's chessboard so they can step through it. "
+        'Use it for every concrete line you discuss. If the position occurred in the game, the board also '
+        'offers the moves actually played from there for comparison.',
+    schema: {
+      'type': 'object',
+      'properties': {
+        'title': {'type': 'string', 'description': 'Short label, e.g. "Better: 12. Nxd4".'},
+        'fen': {'type': 'string', 'description': 'Position before the first move, in FEN.'},
+        'moves': {
+          'type': 'array',
+          'items': {'type': 'string'},
+          'description': 'The suggested moves in SAN, in order (may be empty to just show the position).',
+        },
+      },
+      'required': ['title', 'fen', 'moves'],
+      'additionalProperties': false,
+    },
+    describe: (input) => 'Showing on the board: ${input['title']}',
+    run: (input) async {
+      final fen = '${input['fen'] ?? ''}';
+      final error = _fenError(fen);
+      if (error.isNotEmpty) return error;
+      var current = fen;
+      final legal = <String>[];
+      String? problem;
+      for (final move in (input['moves'] as List? ?? const [])) {
+        final step = DojoChess.play(current, '$move');
+        if (step == null) {
+          problem = '"$move" is illegal after ${legal.join(' ')}; the line was cut there.';
+          break;
+        }
+        legal.add(step.san);
+        current = step.fen;
+      }
+      final actual = actualMovesFrom(game, fen, max(legal.length + 2, 6));
+      onScene(DojoBoardScene(
+        title: '${input['title'] ?? 'Position'}',
+        fen: fen,
+        moves: legal,
+        actual: actual,
+      ));
+      return [
+        'Shown on the board: ${legal.isEmpty ? 'position only' : legal.join(' ')}.',
+        ?problem,
+        if (actual.isNotEmpty) 'In the game the continuation was: ${actual.join(' ')}.',
+      ].join(' ');
+    },
+  );
+
+  /// SAN moves played in [game]'s final line from the position [fen].
+  static List<String> actualMovesFrom(DojoGame game, String fen, int count) {
+    String key(String f) => f.split(' ').take(4).join(' ');
+    final line = game.finalLine;
+    final index = line.indexWhere((n) => key(n.fen) == key(fen));
+    if (index < 0) return const [];
+    return [for (final n in line.skip(index + 1).take(count)) n.san!];
+  }
+
   static List<ClaudeTool> get chess => [analyzePosition, evaluateMove, playMoves, legalMoves];
 
   static ClaudeTool getGame(Future<DojoGame?> Function(String id) loader) => ClaudeTool(
@@ -535,7 +602,11 @@ abstract final class DojoReviewContext {
       ..writeln('Game ${game.id}: student played ${game.playerIsWhite ? 'White' : 'Black'} '
           'vs ${game.opponent.label} (nominal rating ${game.opponent.nominalElo}).')
       ..writeln('Result: ${game.result ?? 'unfinished'} (${game.outcomeLabel}${game.resultReason == null ? '' : ', ${game.resultReason}'}).')
-      ..writeln('Undos used during the game: ${game.undoCount}.')
+      ..writeln('Takebacks (stepped back and changed a move): ${game.takebackCount}.')
+      ..writeln([
+        if (game.training != null) 'Training game: ${game.training!.title}.',
+        ...game.takebacksOnLine(game.finalLine.last.id),
+      ].join('\n'))
       ..writeln('PGN (final line plus explored variations):')
       ..writeln(game.toPgn());
     final report = game.postGame;

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:chessground/chessground.dart' as cg;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:maia_chess/main.dart';
@@ -168,7 +169,7 @@ void main() {
     await settle(tester);
     expect(tester.takeException(), isNull);
     // Board + controls are all on screen.
-    for (final key in ['dojo-board', 'dojo-undo', 'dojo-move-check', 'dojo-explain', 'dojo-eval-toggle']) {
+    for (final key in ['dojo-board', 'dojo-back', 'dojo-hint', 'dojo-move-check', 'dojo-explain', 'dojo-eval-toggle']) {
       final rect = tester.getRect(find.byKey(ValueKey(key)));
       expect(rect.bottom, lessThanOrEqualTo(pixel.height), reason: key);
       expect(rect.right, lessThanOrEqualTo(pixel.width), reason: key);
@@ -180,12 +181,11 @@ void main() {
     expect(find.textContaining('Mistake — best was Nxd4'), findsOneWidget);
     await shot(tester, 'pixel8a_game_guidance');
 
-    // Undo goes back before the player's last move and keeps the line.
+    // Back steps through the line without deleting anything.
     final nodesBefore = game.nodes.length;
-    await tester.tap(find.byKey(const ValueKey('dojo-undo')));
+    await tester.tap(find.byKey(const ValueKey('dojo-back')));
     await settle(tester);
-    expect(game.current.san, 'Nd4');
-    expect(game.undoCount, 1);
+    expect(game.current.san, 'Nxe5');
     expect(game.nodes.length, nodesBefore);
   });
 
@@ -224,12 +224,85 @@ void main() {
     game.postGame = sampleReport(game);
     await tester.pumpWidget(app(DojoPostGamePage(game: game, autoStart: false)));
     await settle(tester);
-    expect(find.byKey(const ValueKey('dojo-perf-elo')), findsOneWidget);
-    expect(find.byKey(const ValueKey('dojo-ai-review')), findsOneWidget);
-    await tester.tap(find.textContaining('Nxe5').first);
+    // Moves tab: board, caption, graph and a scrollable move list all fit.
+    expect(find.byType(cg.StaticChessboard), findsOneWidget);
+    expect(find.byKey(const ValueKey('dojo-report-moves')), findsOneWidget);
+    expect(find.byKey(const ValueKey('dojo-report-caption')), findsOneWidget);
+    final list = tester.getRect(find.byKey(const ValueKey('dojo-report-moves')));
+    expect(list.height, greaterThan(120));
+    expect(list.bottom, lessThanOrEqualTo(pixel.height));
+    await tester.tap(find.byKey(const ValueKey('dojo-show-best')));
     await settle(tester);
+    expect(find.textContaining('Best: '), findsOneWidget);
     expect(tester.takeException(), isNull);
     await shot(tester, 'pixel8a_postgame');
+
+    await tester.tap(find.byKey(const ValueKey('dojo-tab-summary')));
+    await settle(tester);
+    expect(find.byKey(const ValueKey('dojo-perf-elo')), findsOneWidget);
+    await shot(tester, 'pixel8a_postgame_summary');
+
+    // AI coach tab: nothing is sent automatically; one quick-review button.
+    game.review.entries.addAll([
+      DojoChatEntry(role: 'user', text: 'Please give me a quick review of this game.'),
+      DojoChatEntry(
+        role: 'assistant',
+        text: '**Turning point: 4. Nxe5?** The knight grab walks into ...Qg5, hitting e5 and g2.',
+        scenes: [
+          DojoBoardScene(
+            title: 'Better: 4. Nxd4',
+            fen: game.finalLine[6].fen,
+            moves: const ['Nxd4', 'exd4', 'O-O'],
+            actual: CoachTools.actualMovesFrom(game, game.finalLine[6].fen, 4),
+          ),
+        ],
+      ),
+    ]);
+    await tester.tap(find.byKey(const ValueKey('dojo-ai-review')));
+    await settle(tester);
+    expect(find.byKey(const ValueKey('dojo-quick-review')), findsOneWidget);
+    expect(find.text('Better: 4. Nxd4'), findsOneWidget);
+    await tester.ensureVisible(find.text('Better: 4. Nxd4'));
+    await settle(tester);
+    await tester.tap(find.text('Better: 4. Nxd4'));
+    await settle(tester);
+    expect(find.textContaining('Better: 4. Nxd4 · Nxd4'), findsOneWidget);
+    await tester.tap(find.text('Game'));
+    await settle(tester);
+    expect(find.textContaining('Better: 4. Nxd4 · Nxe5'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await shot(tester, 'pixel8a_ai_coach_tab');
+  });
+
+  testWidgets('opening training: the book plays and explains', (tester) async {
+    setSize(tester, pixel, pixelDpr);
+    final lesson = DojoTrainingCatalog.opening('two-knights')!;
+    final game = DojoGame.create(
+      opponent: const DojoOpponent(kind: DojoOpponentKind.stockfish, elo: 1500),
+      playerIsWhite: false,
+      training: DojoTraining(kind: 'opening', lessonId: lesson.id),
+    );
+    await tester.pumpWidget(app(DojoGamePage(game: game)));
+    await settle(tester);
+    await tester.pump(const Duration(seconds: 1));
+    await settle(tester);
+    expect(game.current.san, 'e4');
+    expect(find.byKey(const ValueKey('dojo-training-card')), findsOneWidget);
+    expect(find.byKey(const ValueKey('dojo-book-note')), findsOneWidget);
+    expect(find.textContaining('Your move:'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('dojo-show-me')));
+    await settle(tester);
+    expect(tester.takeException(), isNull);
+    await shot(tester, 'pixel8a_opening_training');
+  });
+
+  testWidgets('training hub lists openings and endgames', (tester) async {
+    setSize(tester, pixel, pixelDpr);
+    await tester.pumpWidget(app(const DojoTrainingPage()));
+    await settle(tester);
+    expect(find.byKey(const ValueKey('dojo-opening-italian')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await shot(tester, 'pixel8a_training');
   });
 
   testWidgets('progress page', (tester) async {

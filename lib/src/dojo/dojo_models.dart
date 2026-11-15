@@ -382,7 +382,9 @@ class DojoChatEntry {
     this.nodeId,
     this.kind = 'chat',
     this.toolNotes = const [],
-  }) : time = time ?? DateTime.now();
+    List<DojoBoardScene>? scenes,
+  }) : time = time ?? DateTime.now(),
+       scenes = scenes ?? [];
 
   final String role; // 'user' | 'assistant' | 'error'
   String text;
@@ -391,6 +393,9 @@ class DojoChatEntry {
   final String kind; // chat | explain | review | progress
   List<String> toolNotes;
 
+  /// Board positions/lines the coach asked to show alongside this message.
+  final List<DojoBoardScene> scenes;
+
   Map<String, Object?> toJson() => {
     'role': role,
     'text': text,
@@ -398,6 +403,7 @@ class DojoChatEntry {
     'nodeId': nodeId,
     'kind': kind,
     if (toolNotes.isNotEmpty) 'tools': toolNotes,
+    if (scenes.isNotEmpty) 'scenes': [for (final s in scenes) s.toJson()],
   };
 
   static DojoChatEntry fromJson(Map<String, Object?> json) => DojoChatEntry(
@@ -407,7 +413,61 @@ class DojoChatEntry {
     nodeId: (json['nodeId'] as num?)?.toInt(),
     kind: json['kind'] as String? ?? 'chat',
     toolNotes: [for (final t in (json['tools'] as List? ?? const [])) '$t'],
+    scenes: [
+      for (final s in (json['scenes'] as List? ?? const []))
+        ?DojoBoardScene.fromJson(s),
+    ],
   );
+}
+
+/// A position plus a line of moves the coach wants the student to see, with
+/// the moves actually played from that position (if it occurred in the game).
+class DojoBoardScene {
+  const DojoBoardScene({
+    required this.title,
+    required this.fen,
+    required this.moves,
+    this.actual = const [],
+  });
+
+  final String title;
+  final String fen;
+
+  /// Suggested line in SAN, legal from [fen].
+  final List<String> moves;
+
+  /// What was actually played from [fen] in the game (SAN), if known.
+  final List<String> actual;
+
+  /// FENs after each move of [line] (index 0 = [fen]).
+  List<String> positions(List<String> line) {
+    final result = [fen];
+    var current = fen;
+    for (final move in line) {
+      final step = DojoChess.play(current, move);
+      if (step == null) break;
+      current = step.fen;
+      result.add(current);
+    }
+    return result;
+  }
+
+  Map<String, Object?> toJson() => {
+    'title': title,
+    'fen': fen,
+    'moves': moves,
+    if (actual.isNotEmpty) 'actual': actual,
+  };
+
+  static DojoBoardScene? fromJson(Object? json) {
+    if (json is! Map || json['fen'] is! String) return null;
+    return DojoBoardScene(
+      title: json['title'] as String? ?? 'Position',
+      fen: json['fen'] as String,
+      moves: [for (final m in (json['moves'] as List? ?? const [])) '$m'],
+      actual: [for (final m in (json['actual'] as List? ?? const [])) '$m'],
+    );
+  }
 }
 
 /// A conversation: what the user sees plus the exact API message history.
@@ -599,17 +659,26 @@ class DojoGame {
     DojoConversation? coach,
     DojoConversation? review,
     this.postGame,
-  }) : nodes = nodes ?? {0: DojoNode(id: 0, fen: dojoStartFen)},
+    this.training,
+    String startFen = dojoStartFen,
+  }) : nodes = nodes ?? {0: DojoNode(id: 0, fen: startFen)},
        coach = coach ?? DojoConversation(),
        review = review ?? DojoConversation();
 
-  factory DojoGame.create({required DojoOpponent opponent, required bool playerIsWhite}) {
+  factory DojoGame.create({
+    required DojoOpponent opponent,
+    required bool playerIsWhite,
+    DojoTraining? training,
+    String startFen = dojoStartFen,
+  }) {
     final now = DateTime.now();
     return DojoGame(
       id: 'g${now.millisecondsSinceEpoch}',
       opponent: opponent,
       playerIsWhite: playerIsWhite,
       started: now,
+      training: training,
+      startFen: startFen,
     );
   }
 
@@ -628,7 +697,39 @@ class DojoGame {
   final DojoConversation review;
   PostGameReport? postGame;
 
+  /// Set for opening/endgame training games.
+  DojoTraining? training;
+
+  /// Times the student went back and played a different move (via Undo or
+  /// by stepping back and branching).
+  int get takebackCount => undoCount;
+
   DojoNode get root => nodes[0]!;
+
+  /// Depth of [id] in plies from the start position.
+  int plyOf(int id) => pathTo(id).length - 1;
+
+  /// Places where the student changed their mind on the line to [id]:
+  /// (fullmove label, abandoned SANs with verdicts, chosen SAN).
+  List<String> takebacksOnLine(int id) {
+    final notes = <String>[];
+    for (final node in pathTo(id).skip(1)) {
+      if (!node.byPlayer) continue;
+      final parent = nodes[node.parentId]!;
+      final others = [
+        for (final c in parent.children)
+          if (c != node.id && nodes[c]!.byPlayer) nodes[c]!,
+      ];
+      if (others.isEmpty) continue;
+      final label = parent.turn == dc.Side.white ? '${parent.fullmove}.' : '${parent.fullmove}...';
+      final tried = others
+          .map((o) => '${o.san}${o.verdict == null ? '' : ' (${o.verdict!.quality.label.toLowerCase()})'}')
+          .join(', ');
+      notes.add('At $label the student first tried $tried, then took it back and chose ${node.san}'
+          '${node.verdict == null ? '' : ' (${node.verdict!.quality.label.toLowerCase()})'}.');
+    }
+    return notes;
+  }
   DojoNode get current => nodes[currentId]!;
   bool get isFinished => result != null;
   dc.Side get playerSide => playerIsWhite ? dc.Side.white : dc.Side.black;
@@ -802,6 +903,7 @@ class DojoGame {
     'coach': coach.toJson(),
     'review': review.toJson(),
     if (postGame != null) 'postGame': postGame!.toJson(),
+    if (training != null) 'training': training!.toJson(),
     'pgn': toPgn(),
   };
 
@@ -825,6 +927,36 @@ class DojoGame {
       coach: DojoConversation.fromJson(json['coach']),
       review: DojoConversation.fromJson(json['review']),
       postGame: PostGameReport.fromJson(json['postGame']),
+      training: DojoTraining.fromJson(json['training']),
+    );
+  }
+}
+
+/// Marks a game as a training session.
+class DojoTraining {
+  const DojoTraining({required this.kind, required this.lessonId, this.misses = 0});
+
+  final String kind; // opening | endgame
+  final String lessonId;
+
+  /// Wrong attempts during the guided part (openings).
+  final int misses;
+
+  bool get isOpening => kind == 'opening';
+  OpeningLesson? get opening => isOpening ? DojoTrainingCatalog.opening(lessonId) : null;
+  EndgameLesson? get endgame => kind == 'endgame' ? DojoTrainingCatalog.endgame(lessonId) : null;
+  String get title => opening?.name ?? endgame?.name ?? lessonId;
+
+  DojoTraining withMiss() => DojoTraining(kind: kind, lessonId: lessonId, misses: misses + 1);
+
+  Map<String, Object?> toJson() => {'kind': kind, 'lessonId': lessonId, 'misses': misses};
+
+  static DojoTraining? fromJson(Object? json) {
+    if (json is! Map || json['kind'] is! String || json['lessonId'] is! String) return null;
+    return DojoTraining(
+      kind: json['kind'] as String,
+      lessonId: json['lessonId'] as String,
+      misses: (json['misses'] as num?)?.toInt() ?? 0,
     );
   }
 }

@@ -227,6 +227,20 @@ class _DojoHomeState extends State<DojoHome> {
                     ),
                     const Divider(height: 1),
                     ListTile(
+                      key: const ValueKey('dojo-training'),
+                      leading: const Icon(Icons.school_outlined),
+                      title: const Text('Training'),
+                      subtitle: const Text('Guided openings, endgames and puzzles from your mistakes'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute<void>(builder: (_) => const DojoTrainingPage()),
+                        );
+                        await _refresh();
+                      },
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
                       leading: const Icon(Icons.grid_view),
                       title: const Text('Classic Maia'),
                       subtitle: const Text('Original app: clocks, analysis board, PGN import, e-boards'),

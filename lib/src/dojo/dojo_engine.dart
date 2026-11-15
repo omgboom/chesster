@@ -112,20 +112,44 @@ class DojoEngine {
   StreamSubscription<String>? _subscription;
   final _output = StreamController<String>.broadcast();
   Future<void>? _startup;
-  Future<void> _tail = Future<void>.value();
   int _threads = 2;
 
-  Future<T> _enqueue<T>(Future<T> Function() job) {
+  final List<({bool background, Future<void> Function() run})> _jobs = [];
+  bool _working = false;
+
+  /// Serialises engine work. Foreground jobs (opponent moves, guidance,
+  /// coach tools) run before queued background analysis.
+  Future<T> _enqueue<T>(Future<T> Function() job, {bool background = false}) {
     final result = Completer<T>();
-    _tail = _tail.catchError((_) {}).then((_) async {
+    Future<void> run() async {
       try {
         result.complete(await job());
       } catch (error, stackTrace) {
         result.completeError(error, stackTrace);
       }
-    });
+    }
+
+    _jobs.add((background: background, run: run));
+    unawaited(_drain());
     return result.future;
   }
+
+  Future<void> _drain() async {
+    if (_working) return;
+    _working = true;
+    try {
+      while (_jobs.isNotEmpty) {
+        final index = _jobs.indexWhere((j) => !j.background);
+        final job = _jobs.removeAt(index < 0 ? 0 : index);
+        await job.run();
+      }
+    } finally {
+      _working = false;
+    }
+  }
+
+  /// Number of queued background jobs (for tests/diagnostics).
+  int get pendingBackground => _jobs.where((j) => j.background).length;
 
   Future<void> _ensureStarted() => _startup ??= _start().catchError((
     Object error,
@@ -262,7 +286,8 @@ class DojoEngine {
     int multiPv = 3,
     int movetimeMs = 700,
     int? depth,
-  }) => _enqueue(() async {
+    bool background = false,
+  }) => _enqueue(background: background, () async {
     final position = dc.Chess.fromSetup(dc.Setup.parseFen(fen));
     if (position.isGameOver) {
       final mated = position.isCheckmate;

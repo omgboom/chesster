@@ -24,6 +24,9 @@ class CoachSession extends ChangeNotifier {
   bool busy = false;
   String? toolNote;
 
+  /// The assistant message currently being streamed (tools attach scenes).
+  DojoChatEntry? currentReply;
+
   List<DojoChatEntry> get entries => conversation.entries;
 
   Future<void> send(String text, {String? extraContext, String? kindOverride}) async {
@@ -31,7 +34,7 @@ class CoachSession extends ChangeNotifier {
     if (trimmed.isEmpty || busy) return;
     final context = contextBuilder?.call();
     final parts = [
-      if (context != null) context.$1,
+      if (context != null && context.$1.isNotEmpty) context.$1,
       ?extraContext,
       trimmed,
     ];
@@ -47,6 +50,7 @@ class CoachSession extends ChangeNotifier {
     });
     final reply = DojoChatEntry(role: 'assistant', text: '', nodeId: context?.$2, kind: entryKind);
     conversation.entries.add(reply);
+    currentReply = reply;
     busy = true;
     toolNote = null;
     notifyListeners();
@@ -82,6 +86,7 @@ class CoachSession extends ChangeNotifier {
       }
       busy = false;
       toolNote = null;
+      currentReply = null;
       notifyListeners();
       await onPersist();
     }
@@ -183,8 +188,16 @@ class CoachChatView extends StatefulWidget {
     this.suggestions = const [],
     this.scrollController,
     this.embedded = false,
+    this.onScene,
+    this.headerAction,
     super.key,
   });
+
+  /// Called when the student taps a board scene attached to a message.
+  final void Function(DojoBoardScene scene)? onScene;
+
+  /// Extra widget in the header (e.g. a "Quick review" button).
+  final Widget? headerAction;
 
   final CoachSession session;
   final String title;
@@ -321,6 +334,7 @@ class _CoachChatViewState extends State<CoachChatView> {
                     ],
                   ),
                 ),
+                ?widget.headerAction,
                 if (!widget.embedded)
                   IconButton(
                     tooltip: 'Close',
@@ -356,6 +370,7 @@ class _CoachChatViewState extends State<CoachChatView> {
                       return _ChatBubble(
                         entry: entries[index],
                         streaming: session.busy && index == entries.length - 1,
+                        onScene: widget.onScene,
                       );
                     },
                   ),
@@ -453,10 +468,11 @@ class _ToolStatus extends StatelessWidget {
 }
 
 class _ChatBubble extends StatelessWidget {
-  const _ChatBubble({required this.entry, required this.streaming});
+  const _ChatBubble({required this.entry, required this.streaming, this.onScene});
 
   final DojoChatEntry entry;
   final bool streaming;
+  final void Function(DojoBoardScene scene)? onScene;
 
   @override
   Widget build(BuildContext context) {
@@ -492,6 +508,23 @@ class _ChatBubble extends StatelessWidget {
             else
               SelectionArea(
                 child: DojoMarkdown(entry.text, style: theme.textTheme.bodyMedium?.copyWith(color: foreground)),
+              ),
+            if (entry.scenes.isNotEmpty && onScene != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    for (final scene in entry.scenes)
+                      ActionChip(
+                        visualDensity: VisualDensity.compact,
+                        avatar: const Icon(Icons.grid_on, size: 16),
+                        label: Text(scene.title, style: theme.textTheme.labelMedium),
+                        onPressed: () => onScene!(scene),
+                      ),
+                  ],
+                ),
               ),
             if (!isUser && entry.toolNotes.isNotEmpty && !streaming)
               Padding(

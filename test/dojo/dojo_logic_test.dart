@@ -62,6 +62,75 @@ void main() {
     });
   });
 
+  group('training catalogue', () {
+    test('every opening line is legal and alternates sides correctly', () {
+      for (final lesson in DojoTrainingCatalog.openings) {
+        var fen = dojoStartFen;
+        for (final (i, move) in lesson.moves.indexed) {
+          final step = DojoChess.play(fen, move.san);
+          expect(step, isNotNull, reason: '${lesson.id} move ${i + 1} ${move.san}');
+          expect(step!.san, move.san, reason: '${lesson.id}: SAN must be canonical');
+          fen = step.fen;
+        }
+      }
+      expect(DojoTrainingCatalog.forColour(true).map((o) => o.level), [1, 2, 3, 4, 5]);
+      expect(DojoTrainingCatalog.forColour(false).first.id, 'two-knights');
+    });
+
+    test('endgame positions are valid', () {
+      for (final lesson in DojoTrainingCatalog.endgames) {
+        expect(() => DojoChess.position(lesson.fen), returnsNormally, reason: lesson.id);
+        expect(DojoChess.position(lesson.fen).isGameOver, isFalse, reason: lesson.id);
+      }
+    });
+
+    test('real Stockfish agrees with each endgame goal', () async {
+      final path = localStockfish();
+      if (path == null) {
+        markTestSkipped('no local stockfish.exe');
+        return;
+      }
+      final engine = DojoEngine(factory: () => ProcessUciHandle.start(path));
+      for (final lesson in DojoTrainingCatalog.endgames) {
+        final analysis = await engine.analyze(lesson.fen, multiPv: 1, movetimeMs: 1500);
+        final forPlayer = analysis.score; // side to move = the student
+        if (lesson.goal == 'Draw') {
+          expect(forPlayer.abs(), lessThan(150), reason: lesson.id);
+        } else {
+          expect(forPlayer, greaterThan(300), reason: lesson.id);
+        }
+      }
+      await engine.close();
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    test('takebacks on a line are described for the coach', () {
+      final game = _game();
+      final e4 = game.addMove(0, 'e2e4', byPlayer: true);
+      game.addMove(0, 'd2d4', byPlayer: true);
+      game.undoCount = 1;
+      final e5 = game.addMove(e4.id, 'e7e5', byPlayer: false);
+      game.select(e5.id);
+      final notes = game.takebacksOnLine(e5.id);
+      expect(notes.single, contains('first tried d4'));
+      expect(notes.single, contains('chose e4'));
+      expect(dojoGameStateBlock(game, game.current), contains('Takebacks on this line'));
+    });
+
+    test('engine runs foreground work before queued background analysis', () async {
+      final fake = FakeUciHandle();
+      final engine = DojoEngine(factory: () async => fake);
+      final order = <String>[];
+      final futures = [
+        engine.analyze(dojoStartFen, movetimeMs: 10, background: true).then((_) => order.add('bg1')),
+        engine.analyze(dojoStartFen, movetimeMs: 10, background: true).then((_) => order.add('bg2')),
+        engine.chooseMove(dojoStartFen, movetimeMs: 10).then((_) => order.add('fg')),
+      ];
+      await Future.wait(futures);
+      expect(order.indexOf('fg'), lessThan(order.indexOf('bg2')));
+      await engine.close();
+    });
+  });
+
   group('verdicts', () {
     test('classification thresholds follow win-percent loss', () {
       expect(MoveVerdict.classify(50, 50, best: true), MoveQuality.best);
