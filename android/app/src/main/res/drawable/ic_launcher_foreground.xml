@@ -1,13 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from assets/branding/chesster_pawn_pixel.png: one square per art pixel. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path
-        android:fillColor="#0869B7"
-        android:pathData="M20,50 L43.5,67.6 L43.5,77.7 L20,92 Z M88,50 L64.5,67.6 L64.5,77.7 L88,92 Z" />
+        android:fillColor="#2B2140"
+        android:pathData="M48,24h12v2h-12z M44,26h4v2h-4z M60,26h4v2h-4z M42,28h2v2h-2z M64,28h2v2h-2z M40,30h2v2h-2z M66,30h2v2h-2z M38,32h2v16h-2z M68,32h2v16h-2z M48,36h2v6h-2z M60,36h2v6h-2z M46,38h2v4h-2z M58,38h2v4h-2z M50,44h2v2h-2z M56,44h2v2h-2z M52,46h4v2h-4z M40,48h2v2h-2z M66,48h2v2h-2z M42,50h2v4h-2z M64,50h2v4h-2z M38,52h4v2h-4z M44,52h20v2h-20z M66,52h4v2h-4z M36,54h2v2h-2z M70,54h2v2h-2z M38,56h32v2h-32z M40,58h2v2h-2z M66,58h2v2h-2z M38,60h2v2h-2z M68,60h2v2h-2z M36,62h2v4h-2z M70,62h2v4h-2z M34,66h2v4h-2z M72,66h2v4h-2z M32,70h2v6h-2z M74,70h2v6h-2z M30,74h2v2h-2z M34,74h40v2h-40z M76,74h2v2h-2z M28,76h2v6h-2z M78,76h2v6h-2z M30,82h48v2h-48z" />
     <path
-        android:fillColor="#55B8E5"
-        android:pathData="M20,25 L54,50.1 L88,25 L88,50 L54,75.8 L20,50 Z" />
+        android:fillColor="#FFF6E0"
+        android:pathData="M48,26h2v10h-2z M44,28h4v8h-4z M42,30h2v8h-2z M40,32h2v4h-2z M44,36h2v2h-2z M38,54h4v2h-4z M42,58h2v2h-2z M40,60h2v2h-2z M38,62h2v4h-2z M36,66h2v4h-2z M34,70h2v2h-2z M30,76h8v6h-8z" />
+    <path
+        android:fillColor="#F4E6C8"
+        android:pathData="M50,26h10v10h-10z M60,28h2v8h-2z M62,30h2v12h-2z M64,32h2v10h-2z M40,36h2v12h-2z M50,36h8v8h-8z M42,38h4v4h-4z M46,42h4v10h-4z M58,42h4v10h-4z M42,44h4v6h-4z M52,44h4v2h-4z M62,44h4v4h-4z M50,46h2v6h-2z M56,46h2v6h-2z M52,48h4v4h-4z M62,48h2v2h-2z M44,50h2v2h-2z M42,54h24v2h-24z M44,58h20v16h-20z M42,60h2v14h-2z M64,60h2v14h-2z M40,62h2v12h-2z M66,62h2v12h-2z M38,66h2v8h-2z M68,66h2v8h-2z M36,70h2v4h-2z M70,70h2v4h-2z M34,72h2v2h-2z M38,76h34v6h-34z" />
+    <path
+        android:fillColor="#D9C09A"
+        android:pathData="M62,28h2v2h-2z M64,30h2v2h-2z M66,32h2v16h-2z M64,48h2v2h-2z M62,50h2v2h-2z M66,54h4v2h-4z M64,58h2v2h-2z M66,60h2v2h-2z M68,62h2v4h-2z M70,66h2v4h-2z M72,70h2v4h-2z M72,76h6v6h-6z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M46,36h2v2h-2z M58,36h2v2h-2z" />
+    <path
+        android:fillColor="#F29AA0"
+        android:pathData="M42,42h4v2h-4z M62,42h4v2h-4z" />
 </vector>

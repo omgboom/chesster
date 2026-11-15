@@ -76,6 +76,7 @@ part 'src/dojo/dojo_progress.dart';
 part 'src/dojo/dojo_home.dart';
 part 'src/dojo/dojo_training_data.dart';
 part 'src/dojo/dojo_training.dart';
+part 'src/dojo/dojo_update.dart';
 part 'src/desktop/desktop_channels.dart';
 part 'src/desktop/desktop_maia.dart';
 part 'src/play.dart';

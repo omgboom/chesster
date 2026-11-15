@@ -1,6 +1,8 @@
 <div align="center">
 
-# ♞ Chesster
+<img src="docs/logo.png" width="128" height="128" alt="Chesster pawn mascot">
+
+# Chesster
 
 **A private chess dojo for your phone and PC.**
 Play human-like Maia or Stockfish, take back anything, and have an AI coach explain your moves in plain English, with Stockfish checking every claim.

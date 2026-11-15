@@ -94,6 +94,7 @@ class _DojoHomeState extends State<DojoHome> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
             children: [
+              const DojoUpdateBanner(),
               if (_resume != null)
                 Card(
                   child: ListTile(
@@ -444,6 +445,9 @@ class _DojoSettingsPageState extends State<DojoSettingsPage> {
                     },
                   ),
                 ),
+              const Divider(),
+              _header('Updates'),
+              const DojoUpdateTile(),
               const Divider(),
               _header('Data'),
               FutureBuilder<String>(
