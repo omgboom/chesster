@@ -269,11 +269,13 @@ class DojoStore {
 
   Future<void> save(DojoGame game) async {
     try {
+      game.updated = DateTime.now().toUtc();
       final file = await _gameFile(game.id);
       await file.parent.create(recursive: true);
       final tmp = File('${file.path}.tmp');
       await tmp.writeAsString(const JsonEncoder.withIndent(' ').convert(game.toJson()));
       await tmp.rename(file.path);
+      DojoSync.instance.noteGameSaved(game);
     } catch (error, stackTrace) {
       unawaited(AppDiagnostics.record('dojo-save', error, stackTrace));
     }
@@ -293,6 +295,7 @@ class DojoStore {
   Future<void> delete(String id) async {
     final file = await _gameFile(id);
     if (await file.exists()) await file.delete();
+    await DojoSync.instance.noteGameDeleted(id);
   }
 
   /// All games, newest first.
@@ -331,7 +334,11 @@ class DojoStore {
   Future<void> saveProgressChat(DojoConversation conversation) async {
     try {
       final file = await _progressFile();
-      await file.writeAsString(const JsonEncoder.withIndent(' ').convert(conversation.toJson()));
+      await file.writeAsString(const JsonEncoder.withIndent(' ').convert({
+        ...conversation.toJson(),
+        'updated': DateTime.now().toUtc().toIso8601String(),
+      }));
+      DojoSync.instance.noteLocalChange();
     } catch (error, stackTrace) {
       unawaited(AppDiagnostics.record('dojo-progress-save', error, stackTrace));
     }

@@ -49,6 +49,9 @@ Chesster is a fork of [Mobile Maia](https://github.com/Dash1971/maia-chess-andro
 ### 💾 Everything is logged
 Each game is saved as one JSON file containing the move tree, every verdict, the chats with the coach, the Stockfish report, the AI review and the PGN. The path is shown under *Dojo settings → Game logs folder*.
 
+### 🔄 Sync between phone and PC
+Optional: games, the progress-coach chat and Dojo preferences sync through a private GitHub repository you own, using a token limited to that repository. Your API key never syncs. See **[docs/SYNC.md](docs/SYNC.md)**.
+
 ### ♟ Classic Maia
 The original Mobile Maia is still here: clocks, premoves, an analysis board, PGN import and export, Maia and Stockfish game review, and electronic boards (Android).
 
@@ -99,6 +102,7 @@ Code map: [`lib/src/dojo/`](lib/src/dojo) (Dojo), [`lib/src/desktop/`](lib/src/d
 
 - No accounts, no analytics and no ads. The app does not phone home.
 - Your games, settings and chats stay on your device. On Android that's the app's private storage; on Windows it's `%APPDATA%`.
+- If you turn on [sync](docs/SYNC.md), they are also copied to your own private GitHub repository, and nowhere else.
 - Your API key is kept in the platform's secure storage (Android Keystore on the phone, encrypted user storage on Windows) and is sent only to `api.anthropic.com`.
 - The coach only sees what you ask it plus the current position or game report. Anthropic's [privacy policy](https://www.anthropic.com/legal/privacy) applies to those requests.
 

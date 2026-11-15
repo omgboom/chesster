@@ -595,6 +595,7 @@ class DojoGame {
     this.resultReason,
     this.resultNodeId,
     this.finished,
+    this.updated,
     this.undoCount = 0,
     DojoConversation? coach,
     DojoConversation? review,
@@ -623,6 +624,8 @@ class DojoGame {
   String? resultReason;
   int? resultNodeId;
   DateTime? finished;
+  /// Last local save (UTC); newer wins when sync finds both copies changed.
+  DateTime? updated;
   int undoCount;
   final DojoConversation coach;
   final DojoConversation review;
@@ -793,6 +796,7 @@ class DojoGame {
     'playerIsWhite': playerIsWhite,
     'started': started.toIso8601String(),
     'finished': finished?.toIso8601String(),
+    'updated': (updated ?? finished ?? started).toUtc().toIso8601String(),
     'currentId': currentId,
     'result': result,
     'resultReason': resultReason,
@@ -816,6 +820,7 @@ class DojoGame {
       playerIsWhite: json['playerIsWhite'] != false,
       started: DateTime.parse(json['started'] as String),
       finished: DateTime.tryParse(json['finished'] as String? ?? ''),
+      updated: DateTime.tryParse(json['updated'] as String? ?? ''),
       nodes: nodes,
       currentId: (json['currentId'] as num?)?.toInt() ?? 0,
       result: json['result'] as String?,
