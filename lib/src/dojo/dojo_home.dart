@@ -16,6 +16,7 @@ class _DojoHomeState extends State<DojoHome> {
   void initState() {
     super.initState();
     settings.addListener(_changed);
+    DojoSync.instance.addListener(_syncChanged);
     unawaited(settings.load());
     unawaited(_refresh());
   }
@@ -23,11 +24,23 @@ class _DojoHomeState extends State<DojoHome> {
   @override
   void dispose() {
     settings.removeListener(_changed);
+    DojoSync.instance.removeListener(_syncChanged);
     super.dispose();
   }
 
   void _changed() {
     if (mounted) setState(() {});
+  }
+
+  DateTime? _lastSyncSeen;
+
+  /// Reload the resume card after a sync brings in games from the other device.
+  void _syncChanged() {
+    final last = DojoSync.instance.lastSync;
+    if (last != null && last != _lastSyncSeen) {
+      _lastSyncSeen = last;
+      unawaited(_refresh());
+    }
   }
 
   Future<void> _refresh() async {

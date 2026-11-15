@@ -9,7 +9,7 @@ Play human-like Maia or Stockfish, take back anything, and have an AI coach expl
 
 [Download](#install) · [Features](#features) · [How it works](#how-it-works) · [Build it yourself](docs/BUILDING.md) · [Website](https://omgboom.github.io/chesster/)
 
-<img src="docs/screenshots/dojo/pixel8a_game_guidance.png" width="200" alt="Game with move check"> <img src="docs/screenshots/dojo/pixel8a_coach_chat.png" width="200" alt="AI coach chat"> <img src="docs/screenshots/dojo/pixel8a_postgame.png" width="200" alt="Game report"> <img src="docs/screenshots/dojo/pixel8a_progress.png" width="200" alt="Progress">
+<img src="docs/screenshots/dojo/pixel8a_game_guidance.png" width="200" alt="Game with move check"> <img src="docs/screenshots/dojo/pixel8a_coach_chat.png" width="200" alt="AI coach chat"> <img src="docs/screenshots/dojo/pixel8a_postgame.png" width="200" alt="Game report"> <img src="docs/screenshots/dojo/pixel8a_ai_coach_tab.png" width="200" alt="AI coach tab with board"> <img src="docs/screenshots/dojo/pixel8a_opening_training.png" width="200" alt="Opening training"> <img src="docs/screenshots/dojo/pixel8a_progress.png" width="200" alt="Progress">
 
 </div>
 
@@ -20,7 +20,7 @@ Play human-like Maia or Stockfish, take back anything, and have an AI coach expl
 Most chess apps make you choose. Engines are strong but play like robots, human-like bots don't explain anything, and post-game reports give you numbers without reasons. Chesster puts all of it into one quiet place to train:
 
 - **Opponents that feel human.** [Maia-3](https://github.com/CSSLab/maia3) was trained on millions of real games and plays like a person at the rating you choose. [Stockfish](https://stockfishchess.org/) is there when you want a strict engine.
-- **Training, not rated play.** Undo whenever you like and try another idea. Every attempt is kept as a branch, so you can compare them afterwards.
+- **Training, not rated play.** Step back whenever you like and try another idea. Every attempt is kept as a branch, so you can compare them afterwards.
 - **Explanations, not just numbers.** A Claude-powered coach explains *why* a move was good or bad in everyday language. It runs Stockfish while it talks, so it checks lines instead of guessing.
 - **Private and yours.** It runs on your device. Your games stay in local files. The only thing that leaves the device is what you send to the AI coach, through your own API key.
 
@@ -32,7 +32,8 @@ Chesster is a fork of [Mobile Maia](https://github.com/Dash1971/maia-chess-andro
 | | |
 |---|---|
 | **Opponents** | Maia at 600–2600, or Stockfish at 1320–3190 (`UCI_Elo`) or full strength. You can play White, Black or a random side. |
-| **Undo & branching** | **Undo** returns you to your previous decision. You can also go back to any earlier move and play something else. Every line is kept: the **Lines** view shows the whole tree, and the PGN export includes every variation. |
+| **Takebacks & branching** | Step **Back** to any earlier move and play something else. Every line is kept: the **Lines** view shows the whole tree, and the PGN export includes every variation. The coach knows when you took a move back and what you tried first. |
+| **Hint** | Asks the coach for a nudge (the idea or the piece to look at) without giving the move away. |
 | **Guidance switch** | One setting turns all in-game help on or off. When it's off, you play without help, and the post-game analysis is still available. |
 | **Move check** | A small button rates your last move: *"Good move, but Nxc6 is better"*, *"Best move! Bg5 was also good"* or *"Blunder: best was Bg7"*. It also shows the evaluation before and after and the move's accuracy. |
 | **Momentum bar** | A handle beside the board. Tap it to show the evaluation bar, and tap again to hide it. |
@@ -40,9 +41,15 @@ Chesster is a fork of [Mobile Maia](https://github.com/Dash1971/maia-chess-andro
 | **Coach chat** | Talk to the coach during the game, by typing or **using the microphone**. It sees the current position and can run Stockfish itself. |
 
 ### 📊 After the game
-- **Stockfish report.** Accuracy, average centipawn loss, blunders, mistakes and inaccuracies for both sides, an evaluation graph, and a board showing your move against the best move.
-- **Performance Elo.** *"You played at roughly 1650 strength, close to your opponent (Maia 1600)."*
-- **AI review.** The coach goes through your turning points, the habits behind them, and what to practise. You can ask follow-up questions.
+- **Fast reports.** Stockfish analyses the game in the background while you play, so the report is ready almost as soon as the game ends.
+- **Moves tab.** The board, the evaluation graph and a scrollable list of moves fit on one phone screen. Step through the moves, and tap **Best** to see your move (red) against Stockfish's choice (green).
+- **Summary tab.** Accuracy, average centipawn loss and blunders for both sides, plus your performance Elo: *"You played at roughly 1650 strength, close to your opponent (Maia 1600)."*
+- **AI coach tab.** A board above a chat. Tap **Quick review** for a write-up, or just ask questions. Every line the coach suggests appears as a chip you can step through on the board, and you can switch to the moves actually played for comparison.
+
+### 🎓 Training
+- **Openings.** Five White and six Black openings in a recommended order, for example the Italian, Queen's Gambit and London for White, and the Two Knights, Caro-Kann and King's Indian for Black. The computer plays the book moves and explains each one. Tap **Show me** if you're stuck. Then you play the rest as a normal game.
+- **Endgames.** Six classic endings, from two-rook mates up to the Lucena and Philidor positions. You get a few pointers, then play against full-strength Stockfish.
+- **My mistakes.** Puzzles built from the mistakes and blunders in your own analysed games: find the move you missed.
 
 ### 📈 Progress
 - Performance rating over time, your accuracy across the last 10 games, and your record against each opponent.
@@ -54,6 +61,9 @@ Each game is saved as one JSON file containing the move tree, every verdict, the
 ### 🔄 Sync between phone and PC
 Optional: games, the progress-coach chat and Dojo preferences sync through a private GitHub repository you own, using a token limited to that repository. Your API key never syncs. See **[docs/SYNC.md](docs/SYNC.md)**.
 
+### ⬆ Updates
+The app checks GitHub Releases once a day. When an update is available, tap **Update**. On Android the system installer opens. On Windows the app downloads the new version, replaces itself and restarts. Your games are kept.
+
 ### ♟ Classic Maia
 The original Mobile Maia is still here: clocks, premoves, an analysis board, PGN import and export, Maia and Stockfish game review, and electronic boards (Android).
 
@@ -62,7 +72,7 @@ The original Mobile Maia is still here: clocks, premoves, an analysis board, PGN
 ### Android (tested target: Pixel 8a)
 1. Download the `…-arm64.apk` file from the [latest release](https://github.com/omgboom/chesster/releases/latest).
 2. Open it on your phone and allow *Install unknown apps* for your browser or file manager when Android asks.
-3. Updates install over the previous version, and your games are kept.
+3. Later versions install from inside the app (see *Updates*) and keep your games. Versions before 0.2.0 have no updater, so install 0.2.0 manually once.
 
 Chesster uses the package id `com.chesster.dojo`, so it installs next to the original Mobile Maia.
 
