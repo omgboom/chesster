@@ -29,8 +29,15 @@ jobs:
         id: lfs
         run: |
           echo "key=lfs-$(git lfs ls-files --long | sort | sha256sum | cut -c1-40)" >> "$GITHUB_OUTPUT"
-          # Monotonic Android versionCode so every CI APK installs over the last.
+          # Monotonic build number (Android versionCode, Windows file version
+          # build part) so every CI build installs over the last. The in-app
+          # updater compares it with the number in the release asset name.
           echo "BUILD_NUMBER=$((1000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "BUILD_NAME=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "BUILD_NAME=0.0.0" >> "$GITHUB_ENV"
+          fi
       - uses: actions/cache@v6
         with:
           path: .git/lfs/objects
@@ -75,8 +82,7 @@ jobs:
           CHESSTER_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           CHESSTER_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          args=(--release --target-platform android-arm64 --build-number "$BUILD_NUMBER")
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then args+=(--build-name "${GITHUB_REF_NAME#v}"); fi
+          args=(--release --target-platform android-arm64 --build-name "$BUILD_NAME" --build-number "$BUILD_NUMBER")
           flutter build apk "${args[@]}"
       - name: Verify signature and name the APK
         run: |
@@ -86,6 +92,10 @@ jobs:
           echo "apksigner from $build_tools"
           "${build_tools}apksigner" verify --verbose --print-certs "$apk" 2>&1 \
             | { grep -Ev '^WARNING: META-INF/' || true; }
+          badging=$("${build_tools}aapt2" dump badging "$apk" | head -1)
+          echo "$badging"
+          grep -q "versionCode='$BUILD_NUMBER'" <<< "$badging" || { echo "::error::APK versionCode is not $BUILD_NUMBER"; exit 1; }
+          grep -q "versionName='$BUILD_NAME'" <<< "$badging" || { echo "::error::APK versionName is not $BUILD_NAME"; exit 1; }
           mkdir -p dist
           cp "$apk" "dist/chesster-${GITHUB_REF_NAME//\//-}-${BUILD_NUMBER}-arm64.apk"
           ls -l dist
@@ -114,8 +124,15 @@ jobs:
         id: lfs
         run: |
           echo "key=lfs-$(git lfs ls-files --long | sort | sha256sum | cut -c1-40)" >> "$GITHUB_OUTPUT"
-          # Monotonic Android versionCode so every CI APK installs over the last.
+          # Monotonic build number (Android versionCode, Windows file version
+          # build part) so every CI build installs over the last. The in-app
+          # updater compares it with the number in the release asset name.
           echo "BUILD_NUMBER=$((1000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "BUILD_NAME=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "BUILD_NAME=0.0.0" >> "$GITHUB_ENV"
+          fi
       - uses: actions/cache@v6
         with:
           path: .git/lfs/objects
@@ -141,8 +158,7 @@ jobs:
         run: flutter test test/desktop_platform_test.dart --reporter expanded
       - name: Build Windows release
         run: |
-          args=(--release --build-number "$BUILD_NUMBER")
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then args+=(--build-name "${GITHUB_REF_NAME#v}"); fi
+          args=(--release --build-name "$BUILD_NAME" --build-number "$BUILD_NUMBER")
           flutter build windows "${args[@]}"
       - name: Verify bundle and zip it
         run: |
@@ -150,6 +166,10 @@ jobs:
           for file in chesster.exe onnxruntime.dll stockfish.exe "data/flutter_assets/$MAIA_MODEL"; do
             test -f "$release/$file" || { echo "::error::missing $file"; exit 1; }
           done
+          # package_info_plus reads ProductVersion ("<name>+<build>") on Windows.
+          product=$(powershell -NoProfile -Command "(Get-Item '$release/chesster.exe').VersionInfo.ProductVersion" | tr -d "\r")
+          echo "chesster.exe ProductVersion: $product"
+          test "$product" = "$BUILD_NAME+$BUILD_NUMBER" || { echo "::error::ProductVersion is not $BUILD_NAME+$BUILD_NUMBER"; exit 1; }
           mkdir -p dist staging
           cp -r "$release" staging/Chesster
           name="chesster-${GITHUB_REF_NAME//\//-}-${BUILD_NUMBER}-windows-x64.zip"

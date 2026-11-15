@@ -7,12 +7,14 @@ import android.net.Uri
 import android.app.ActivityManager
 import android.os.Bundle
 import android.os.Build
+import android.provider.Settings
 import android.view.WindowManager
 import android.system.Os
 import android.system.OsConstants
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
+import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -319,6 +321,35 @@ class MainActivity : FlutterActivity() {
                             result.error("url_unavailable", "No app can open this URL", null)
                         } catch (error: SecurityException) {
                             result.error("url_blocked", error.message, null)
+                        }
+                    }
+
+                    "installApk" -> {
+                        val apk = call.argument<String>("path")?.let { File(it) }
+                        if (apk == null || !apk.isFile || apk.parentFile?.name != "updates") {
+                            result.error("bad_arguments", "Expected a downloaded update APK", null)
+                            return@setMethodCallHandler
+                        }
+                        try {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !packageManager.canRequestPackageInstalls()) {
+                                // Android asks once per source app; send the user to the toggle.
+                                startActivity(
+                                    Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))
+                                )
+                                result.success("permission_required")
+                                return@setMethodCallHandler
+                            }
+                            val uri = FileProvider.getUriForFile(this, "$packageName.files", apk)
+                            startActivity(
+                                Intent(Intent.ACTION_VIEW)
+                                    .setDataAndType(uri, "application/vnd.android.package-archive")
+                                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                            result.success("installer_started")
+                        } catch (error: ActivityNotFoundException) {
+                            result.error("installer_unavailable", "No package installer is available", null)
+                        } catch (error: RuntimeException) {
+                            result.error("install_failed", error.message ?: error.javaClass.simpleName, null)
                         }
                     }
 
